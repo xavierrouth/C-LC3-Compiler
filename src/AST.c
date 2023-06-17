@@ -17,7 +17,7 @@ void visit_ast_node() {
     return;
 }
 
-ast_node_t* free_compound_statement() {
+void free_compound_statement(ast_node_t* n) {
     free(n->cmpd_stmt.statements);
 }
 

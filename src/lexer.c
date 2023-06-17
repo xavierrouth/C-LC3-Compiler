@@ -12,8 +12,8 @@ void init_lexer(const char * src, long size) {
     Lexer.putback = 0;
     Lexer.size = size;
     return;
-    //return Lexer;
 }
+
 static int chrpos(char *s, int c) {
 	char *p;
 
@@ -232,7 +232,7 @@ token_t get_token() {
                 }
                 else if (isalpha(c) || '_' == c) {
                     token.contents_len = scan_symbol(c);
-                    char buffer[16];
+                    char buffer[16]; // Max length of symbol;
                     strncpy(buffer, token.contents, token.contents_len);
                     buffer[token.contents_len] = '\0';
                     if ((token.kind = keyword(buffer)) != 0) {

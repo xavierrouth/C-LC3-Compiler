@@ -62,9 +62,9 @@ static ast_node_t* parse_translation_unit() {
     ast_node_t* c = init_compound_statement();
     p->program.cmpd = c;
 
-
     ast_node_t* stmt;
     while ((stmt = parse_external_declaration()) != NULL) {
+        // Add the new stmt to our compound statment;
         compound_statement_push(c, stmt);
     }
         

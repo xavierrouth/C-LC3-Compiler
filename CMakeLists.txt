@@ -20,12 +20,6 @@ if(NOT WIN32)
   set(ColorWhite   "${Esc}[37m")
 endif()
 
-site_name(SITE_NAME)
-
-if(SITE_NAME MATCHES "ews.illinois.edu$")
-    set(EWS TRUE)
-endif()
-
 # Disable in-source builds (running "cmake ." in the project directory)
 # This is bad practice as it pollutes the project directory.
 # See: https://dpiepgrass.medium.com/cmake-fights-against-disabling-in-source-builds-ab1d71c1d26f
@@ -35,16 +29,10 @@ if ("${CMAKE_BINARY_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
     "${ColorBold}Delete `CMakeCache.txt` and `CMakeFiles/` before you continue.${ColorReset}")
 endif()
 
-# Specify C++ compiler and linker.
+# Specify compiler and linker.
 
 set(CMAKE_C_COMPILER "/usr/bin/clang")
-set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
-set(CMAKE_LINKER "/usr/bin/clang++")
-
-
-# Specify C++ Standard.
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_LINKER "/usr/bin/clang")
 
 # Define project.   
 project(${name} VERSION ${version})
@@ -52,26 +40,11 @@ project(${name} VERSION ${version})
 # Specify Debug build.
 set(CMAKE_BUILD_TYPE Debug)
 
-# Specify warnings for all builds.
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -Wall -Wfatal-errors -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wunused-but-set-variable")
-
-# Specify debug symbols and no optimizations for Debug builds.
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_GLIBCXX_DEBUG -O0 -gdwarf-4")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic -Wfatal-errors -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wunused-but-set-variable")
 
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -O0 -gdwarf-4")
 
-# Add Catch2.
-Include(FetchContent)
-
-FetchContent_Declare(
-  Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.0.1 # or a later release
-)
-
-FetchContent_MakeAvailable(Catch2)
 
 # Path definitions.
 #set(lib_dir ${CMAKE_SOURCE_DIR}/lib)
@@ -82,20 +55,19 @@ set(entry_dir ${CMAKE_SOURCE_DIR}/entry)
 # Run CMakeLists in lib_dir to build our required libraries.
 #add_subdirectory(${lib_dir})
 
-# Run CMakeLists in src_dir to build the student's code.
+# Run CMakeLists in src_dir to build the sources.
 add_subdirectory(${src_dir})
 
-# Add the Catch2 entrypoint using Catch2, our libs and src code.
-file(GLOB_RECURSE tests_src CONFIGURE_DEPENDS ${tests_dir}/*.cpp)
+# Run CMakeLists in test_dir to build the sources.
+add_subdirectory(${tests_dir})
 
-include(Catch)
-
-add_executable(test ${tests_src})
-target_link_libraries(test PRIVATE Catch2::Catch2WithMain src) # "libs" removed
-
-catch_discover_tests(test)
+# Test executable
+add_executable(test ${tests_dir}/main.c)
+target_link_libraries(test PRIVATE test_src) # Link source
+target_link_libraries(test PRIVATE src)
 
 # Add the entrypoints using our libs and src code.
+
 foreach(entrypoint IN LISTS entrypoints)
     add_executable(${entrypoint} ${entry_dir}/${entrypoint}.c)
     target_link_libraries(${entrypoint} PRIVATE src) # "libs" removed

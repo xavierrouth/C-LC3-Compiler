@@ -9,7 +9,14 @@
 
 int main(int argc, char **argv) {
     //FILE* f = fopen("../src/test1.c", "rb");
-    FILE* f = fopen("../test_src/test1.c", "rb");
+    FILE* f;
+    const char * path = "../tests/lexer/simple-1.c";
+
+    if ((f = fopen(path, "rb")) == NULL) { 
+        printf("Invalid input file path.\n");
+        return 1;
+    }
+
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);  /* same as rewind(f); */

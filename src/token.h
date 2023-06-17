@@ -103,7 +103,7 @@ typedef enum TOKEN_KIND_ENUM {
     T_END
 } token_enum;
 
-static char ethan[4];
+static char buffer[4];
 
 static const char * token_type_to_str(token_enum type) {
     switch(type) {
@@ -140,8 +140,8 @@ static const char * token_type_to_str(token_enum type) {
         case T_END: return "T_END";
     }
 
-    sprintf(ethan, "%d", type);
-    return ethan;
+    sprintf(buffer, "%d", type);
+    return buffer;
     //"Not printable";
 }
 
