@@ -36,19 +36,11 @@ if ("${CMAKE_BINARY_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
 endif()
 
 # Specify C++ compiler and linker.
-if(NOT DEFINED EWS)
-    set(CMAKE_C_COMPILER "/usr/bin/clang")
-    set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
-    set(CMAKE_LINKER "/usr/bin/clang++")
-else()
-    set(CMAKE_C_COMPILER "/software/llvm-6.0.1/bin/clang")
-    set(CMAKE_CXX_COMPILER "/software/llvm-6.0.1/bin/clang++")
-    set(CMAKE_LINKER "/software/llvm-6.0.1/bin/clang++")
 
-    # Add other required flags for EWS.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
-endif()
+set(CMAKE_C_COMPILER "/usr/bin/clang")
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+set(CMAKE_LINKER "/usr/bin/clang++")
+
 
 # Specify C++ Standard.
 set(CMAKE_CXX_STANDARD 17)
@@ -61,30 +53,25 @@ project(${name} VERSION ${version})
 set(CMAKE_BUILD_TYPE Debug)
 
 # Specify warnings for all builds.
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -Wall -Werror -Wfatal-errors -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -Wall -Wfatal-errors -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wunused-but-set-variable")
 
 # Specify debug symbols and no optimizations for Debug builds.
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_GLIBCXX_DEBUG -O3 -gdwarf-4")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_GLIBCXX_DEBUG -O0 -gdwarf-4")
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic -Wfatal-errors -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wunused-but-set-variable")
+
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -O0 -gdwarf-4")
 
 # Add Catch2.
-# Note: Ubuntu 20.04 LTS does not have Catch2 on apt
-# See: https://github.com/catchorg/Catch2/issues/1383
-if(NOT DEFINED EWS)
-    find_package(Catch2 REQUIRED)
-else()
-    include(FetchContent)
+Include(FetchContent)
 
-    FetchContent_Declare(
-        Catch2
-        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG        v3.0.0-preview3
-    )
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.0.1 # or a later release
+)
 
-    FetchContent_MakeAvailable(Catch2)
-
-    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
-endif()
+FetchContent_MakeAvailable(Catch2)
 
 # Path definitions.
 #set(lib_dir ${CMAKE_SOURCE_DIR}/lib)
@@ -110,6 +97,6 @@ catch_discover_tests(test)
 
 # Add the entrypoints using our libs and src code.
 foreach(entrypoint IN LISTS entrypoints)
-    add_executable(${entrypoint} ${entry_dir}/${entrypoint}.cpp)
+    add_executable(${entrypoint} ${entry_dir}/${entrypoint}.c)
     target_link_libraries(${entrypoint} PRIVATE src) # "libs" removed
 endforeach()
