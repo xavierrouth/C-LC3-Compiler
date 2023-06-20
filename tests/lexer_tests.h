@@ -58,6 +58,7 @@ l_simple_1(const MunitParameter params[], void* data) {
         t = get_token();
         //print_token(&t);
     }
+    free(file_buffer);
 
     return MUNIT_OK;
 }
@@ -108,6 +109,7 @@ l_simple_2(const MunitParameter params[], void* data) {
         //print_token(&t);
     }
 
+    free(file_buffer);
     return MUNIT_OK;
 }
 

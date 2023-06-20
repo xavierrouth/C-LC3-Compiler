@@ -11,7 +11,8 @@
 int main(int argc, char **argv) {
     //FILE* f = fopen("../src/test1.c", "rb");
     FILE* f;
-    const char * path = "../tests/parser/simple-1.c";
+    const char* path = argv[1];
+    //const char * path = "../tests/lexer/simple-1.c";
 
     if ((f = fopen(path, "rb")) == NULL) { 
         printf("Invalid input file path.\n");

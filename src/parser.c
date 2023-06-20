@@ -62,6 +62,7 @@ static token_t eat_token(token_enum type)
         }
         else {
             printf("Error: Eat Token Unexpected token encountered.\n");
+            t.kind = T_INVALID;
         }
     }
     return t;
@@ -210,10 +211,6 @@ static ast_node_t* parse_primary_expression() {
     return node;
 }
 
-
-
-
-
 static ast_node_t* parse_declaration() {
     // Function definition or declaration
     if (expect_token(T_END, false)) {
@@ -221,7 +218,6 @@ static ast_node_t* parse_declaration() {
         return NULL;
     }
 
-    ast_node_t* node = init_ast_node();
     type_info_t type_info = parse_declaration_specifiers();
 
     if (expect_token(T_MUL, false)) {
@@ -230,10 +226,16 @@ static ast_node_t* parse_declaration() {
     }
 
     // We always need an identifier here:
+    // If not, we need to do error handling somehow.
+    // For now, store error in the token type.
     token_t id_token = eat_token(T_IDENTIFIER);
-
+    if (id_token.kind == T_INVALID) {
+        printf("Invalid token encountered, aborting AST building.\n");
+        return NULL;
+    }
     // Do we need multiple cases if we use two differnet unions 
     // even though the memory layout is the same?
+    ast_node_t* node = init_ast_node();
     node->as.var_decl.initializer = NULL;
     node->as.var_decl.type_info = type_info;
     // Copies the token contents to the node identifier.
