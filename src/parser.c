@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "parser.h"
 #include "type_table.h"
@@ -18,6 +19,28 @@ static token_t next_token()
     return get_token();
 }
 
+static int prefix_binding_power[32];
+static int infix_binding_power[32];
+
+static void init_infix_binding_power() {
+    infix_binding_power[OP_ADD] = 5;
+    infix_binding_power[OP_SUB] = 5;
+    infix_binding_power[OP_MUL] = 15;
+    infix_binding_power[OP_DIV] = 15;
+    return;
+}
+
+static void init_prefix_binding_power() {
+    prefix_binding_power[OP_ADD] = 10;
+    prefix_binding_power[OP_SUB] = 10;
+}
+
+static void init_binding_power() {
+    init_infix_binding_power();
+    init_prefix_binding_power();
+}
+
+
 // Do we need to allow for multiple token putback?
 static void putback_token(token_t t) 
 {
@@ -27,6 +50,12 @@ static void putback_token(token_t t)
     }
     Parser.putback_stack[Parser.putback_idx++] = t;
     return;
+}
+
+static token_t peek_token() {
+    token_t t = next_token();
+    putback_token(t);
+    return t;
 }
 
 /* Look ahead at the next token, and return whether it is of a certain type.
@@ -168,22 +197,93 @@ static ast_node_t* parse_function_call() {
 
 static ast_node_t* parse_primary_expression();
 
-/** TODO: Pratt parsing here:*/
-static ast_node_t* parse_expression(int precedence) {
-    ast_node_t* node;
-    if (expect_token(T_ADD, false)) {
-        eat_token(T_ADD);
-        node = init_ast_node();
-        node->type = A_BINOP_EXPR;
-        node->as.binary_op.type = OP_ADD;
-        node->as.binary_op.left = NULL;
+static ast_op_enum token_type_to_op(token_enum type) {
+    switch(type) {
+        case T_ADD: return OP_ADD;
+        case T_SUB: return OP_SUB;
+        case T_DIV: return OP_DIV;
+        case T_MUL: return OP_MUL;
     }
-    node = parse_primary_expression();
-    return node;
 }
 
-/** This is the lowest level of expression*/
-static ast_node_t* parse_primary_expression() {
+/** TODO: Pratt parsing here:*/
+static ast_node_t* parse_expression(int binding_power) {
+    
+    // Do left token
+    ast_node_t* left = NULL;
+    ast_node_t* right = NULL;
+    ast_node_t* node = NULL;
+    int left_power = 0;
+    int right_power = 0;
+    if (expect_token(T_INTLITERAL, false))
+        left = parse_int_literal();
+    else if (expect_token(T_ADD, false)) {
+        eat_token(T_ADD);
+        left_power = prefix_binding_power[OP_ADD];
+        right_power = prefix_binding_power[OP_ADD] + 1;
+        right = parse_expression(right_power);
+        left = right; // Don't need a special node for this.
+    }
+    else if (expect_token(T_SUB, false)) {
+        eat_token(T_SUB);
+        left_power = prefix_binding_power[OP_SUB];
+        right_power = infix_binding_power[OP_SUB] + 1;
+        right = parse_expression(right_power);
+        // Multiply by -1
+        ast_node_t* negate_node = init_ast_node();
+        negate_node->type = A_INTEGER_LITERAL;
+        negate_node->as.literal.value = -1;
+
+        left = init_ast_node();
+        left->type = A_BINOP_EXPR;
+        left->as.binary_op.type = OP_MUL;
+        left->as.binary_op.left = negate_node;
+        left->as.binary_op.right = right;
+    }
+    
+    /** Consume tokens until there is a token whose binding power is equal or lower than rbp*/
+    while (true) {
+        if (expect_token(T_SEMICOLON, false)) {
+            //eat_token(T_SEMICOLON);
+            break;
+        }
+        // For now just assume that the next token is binop.
+        /**
+        if (expect_token(T_ADD, false)){
+            //eat_token(T_ADD);
+            node = init_ast_node();
+            node->as.binary_op.type = OP_ADD;
+            node->as.binary_op.left = left; 
+            node->type = A_BINOP_EXPR; 
+        }
+        */
+        
+        node = init_ast_node();
+        node->as.binary_op.type = token_type_to_op(peek_token().kind);
+        node->as.binary_op.left = left; 
+        node->type = A_BINOP_EXPR;
+        
+        left_power = infix_binding_power[node->as.binary_op.type];
+        right_power = infix_binding_power[node->as.binary_op.type] + 1;
+
+        if (left_power < binding_power) {
+            break;
+        }
+
+        next_token();
+
+        right = parse_expression(right_power);
+        node->as.binary_op.right = right;
+        
+        /** What do we do here?*/
+        left = node;
+    }
+        
+    return left;
+}
+
+/**
+static ast_node_t* parse_expression(int right_binding_power) {
     ast_node_t* node;
     if (expect_token(T_LPAREN, false)) {
         eat_token(T_LPAREN);
@@ -210,6 +310,7 @@ static ast_node_t* parse_primary_expression() {
 
     return node;
 }
+*/
 
 static ast_node_t* parse_declaration() {
     // Function definition or declaration
@@ -244,7 +345,7 @@ static ast_node_t* parse_declaration() {
     // TODO: Implement multiple variable initialization.
     
     if (expect_token(T_SEMICOLON, false)) {
-        eat_token(T_SEMICOLON);
+        eat_token(T_SEMICOLON); // Don't eat it??/
         node->type = A_VAR_DECL;
         node->as.var_decl.type_info = type_info;
         return node;
@@ -254,7 +355,7 @@ static ast_node_t* parse_declaration() {
         // Parse variable initialization definition
         node->type = A_VAR_DECL;
         node->as.var_decl.type_info = type_info;
-        node->as.var_decl.initializer = parse_primary_expression();
+        node->as.var_decl.initializer = parse_expression(0);
         eat_token(T_SEMICOLON);
         return node;
     }
@@ -303,6 +404,7 @@ void teardown_ast() {
 void init_parser(bool error_mode) {
     Parser.ast_root = NULL;
     Parser.error_mode = error_mode;
+    init_binding_power();
     return;
 }
 

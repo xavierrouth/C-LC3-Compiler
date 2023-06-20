@@ -155,6 +155,12 @@ static token_enum char_to_token_type(char c) {
         case '{': return T_LBRACE;
         case '}': return T_RBRACE;
         case '[': return T_LBRACKET;
+        case ']': return T_RBRACKET;
+        case '(': return T_LPAREN;
+        case ')': return T_RPAREN;
+        case '+': return T_ADD;
+        case '-': return T_SUB;
+        case ';': return T_SEMICOLON;
     }
     return T_DEFAULT;
 }
@@ -212,23 +218,41 @@ token_t get_token() {
                     token.kind = T_INTLITERAL;
                     return token;
                 }
+                else {
+                    putback(c);
+                    token.kind = T_SUB;
+                    return token;
+                }
+            case '+':
+                if((c = next()) == '=') {
+                    token.contents_len = 2;
+                    //token.kind = T_ADD_INC;
+                    return token;
+                }
+                else {
+                    putback(c);
+                    token.kind = T_ADD;
+                    return token;
+                }
+            case '*':
+                if ((c = next()) == "=") {
+                    token.contents_len = 2;
+                    //token.kind = T_MUL_INC;
+                    return token;
+                }
+                else {
+                    putback(c);
+                    token.kind = T_MUL;
+                    return token;
+                }
+            // Single token ones:
             case '(':
-                token.kind = T_LPAREN;
-                return token;
             case ')':
-                token.kind = T_RPAREN;
-                return token;
             case ';':
-                token.kind = T_SEMICOLON;
-                return token;
             case ',':
-                token.kind = T_COMMA;
-                return token;
             case '{':
-                token.kind = T_LBRACE;
-                return token;
             case '}':
-                token.kind = T_RBRACE;
+                token.kind = char_to_token_type(c);
                 return token;
             default:
                 if (isdigit(c)) {

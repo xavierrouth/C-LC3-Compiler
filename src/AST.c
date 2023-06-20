@@ -120,8 +120,9 @@ void print_ast_node(ast_node_t* node, int indentation) {
             snprintf(print_buffer, 64,
                 "<type=%s, op_type=\"%s\">\n", \
                 ast_type_to_str(node->type), 
-                node->as.binary_op.type);
+                ast_op_to_str(node->as.binary_op.type));
             printf_indent(indentation*3, print_buffer);
+            return;
         }
         default:
            if (sprintf(print_buffer, "<type=%s, contents=\"%s\">\n", \
