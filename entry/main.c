@@ -1,7 +1,7 @@
 #include "token.h"
 #include "lexer.h"
 #include "parser.h"
-#include "ast.h"
+#include "AST.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -48,10 +48,7 @@ int main(int argc, char **argv) {
     printf("Done Building AST\n");
 
     ast_node_t* root = get_root();    
-    // Implement Print Node Function
-    for (int i = 0; i < 3; i++) {
-        printf("1\n");
-    }
+
     /**
     for (int i = 0; i < 5; i++) {
         printf("%d\n", root->as.program.body.nodes[i]->as.literal.value);
@@ -62,14 +59,16 @@ int main(int argc, char **argv) {
         printf("%d\n", root->data.value);
     }
     */
+    /*
+    print_ast_node(root, 0);
+    print_ast_node(root->as.program.body.nodes[0], 1);
+    print_ast_node(root->as.program.body.nodes[1], 1); 
+    print_ast_node(root->as.program.body.nodes[1]->as.var_decl.initializer, 2); 
+    print_ast_node(root->as.program.body.nodes[2], 1); 
+    */
 
-   print_ast_node(root, 0, 1);
-   print_ast_node(root->as.program.body.nodes[0], 1, 0);
-   print_ast_node(root->as.program.body.nodes[1], 1, 1); 
-   print_ast_node(root->as.program.body.nodes[1]->as.var_decl.initializer, 2, 1); 
-   print_ast_node(root->as.program.body.nodes[2], 1, 1); 
-
-    
+    print_ast(root, 0);
+    free_ast(root);
 
 
     free(file_buffer);

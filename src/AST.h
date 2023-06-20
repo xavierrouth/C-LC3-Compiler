@@ -19,7 +19,6 @@ typedef enum AST_NODE_ENUM {
     A_VAR_DECL,
     A_FUNCTION_CALL,
     A_FUNCTION_DECL,
-    A_IDENTIFIER,
     A_COMPOUND_STMT,
     A_EXPR_STMT,
     A_VAR_EXPR,
@@ -44,16 +43,29 @@ struct AST_NODE_STRUCT {
         struct { // For int literal
             int value;
         } literal;
+        struct {
+            char identifier[16];
+            ast_node_list parameters; // A bunch of expressions.
+        } func_call_expr;
+        struct {
+            char identifier[16];
+            int scope;
+            // We don't know the type until we compare with var decl later.
+            // We can kkeep track of scope for now though.
+        } var_ref_expr;
         // Expressions:
+        /**
         struct {
             ast_node_t* symbol;
             ast_node_list parameters; 
         } func_call;
+        // TODO: Include symbol ref??
         struct { // A reference to an already defined symbol
             int id;
             int scope;
             type_enum type;
         } symbol_ref;
+        */
         struct { // For Operations or assign statements
             ast_op_enum type; 
             ast_node_t* left;
@@ -109,13 +121,17 @@ struct AST_NODE_STRUCT {
         } program;
     } as;
 };
-
+ 
 ast_node_t* init_ast_node();
 
 ast_node_list ast_node_list_init();
 
 void ast_node_list_push(ast_node_list* list, ast_node_t* node);
 
-void print_ast_node(ast_node_t* node, int indentation, int print_type);
+void print_ast_node(ast_node_t* node, int indentation);
+
+void print_ast(ast_node_t* root, int indentation);
+
+void free_ast(ast_node_t* root);
 
 #endif

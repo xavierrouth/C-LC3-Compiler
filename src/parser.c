@@ -29,12 +29,14 @@ static void putback_token(token_t t)
     return;
 }
 
-static bool expect_token(token_enum type)
+/* Look ahead at the next token, and return whether it is of a certain type.
+This does not consume the token*/
+static bool expect_token(token_enum type, bool print_error)
 {
     token_t t = next_token();
 
     if (t.kind != type) {
-        if (Parser.error_mode == true) {
+        if (print_error == true) {
             if (type == T_SEMICOLON) {
                 printf("Expected semicolon at end of line %d.\n", t.debug_info.row);
             }
@@ -43,20 +45,42 @@ static bool expect_token(token_enum type)
         return false;
     }
     else {
+        putback_token(t);
         return true;
     }
 }
 
-// Helper function to just eat a token, and don't do anything with its contents.
+// Helper function to just eat a token of a certain type, and return the contents.
+// Always errors if the token is not the correct type.
 static token_t eat_token(token_enum type)
 {
     token_t t = next_token();
     if (t.kind != type) {
-        printf("Unexpected token encountered.\n");
+        print_token(&t);
+        if (type == T_SEMICOLON) {
+            printf("Expected semicolon at end of line %d.\n", t.debug_info.row);
+        }
+        else {
+            printf("Error: Eat Token Unexpected token encountered.\n");
+        }
     }
     return t;
 }
 
+static bool copy_token_to_id(token_t id_token, ast_node_t* node) {
+    if (id_token.contents_len > 16) {
+        printf("Error, identifier is too long.");
+        return false;
+    }
+    // Always but identifier first in struct and maybe it just works??
+    // Is this UB?
+    // Might have to have a switch (node->type) to assign it to union correctly.
+
+    memcpy(node->as.var_decl.identifier, id_token.contents, id_token.contents_len);
+    // Null terminate the contents string so we can print it easier later
+    node->as.var_decl.identifier[id_token.contents_len] = '\0';
+    return true;
+}
 
 
 // Give it a node 
@@ -111,65 +135,132 @@ static type_info_t parse_declaration_specifiers() {
 int len_atoi(const char *buf, size_t len)        
 {
         int n=0;
+        int negative = 1;
+
+        if (buf[0] == '-') {
+            negative = -1;
+            buf++;
+        }
 
         while (len--)
                 n = n*10 + *buf++ - '0';
 
-        return n;
+        return n * negative;
 }
 
 static ast_node_t* parse_int_literal() {
     ast_node_t* node = init_ast_node();
     // For now just handle single int literals LOL;
-    token_t t = get_token();
+    token_t t = eat_token(T_INTLITERAL);
     node->type = A_INTEGER_LITERAL;
     node->as.literal.value = len_atoi(t.contents, t.contents_len);
     return node;
 }
 
+static ast_node_t* parse_function_call() {
+    // TODO: Implement this
+    printf("Parsing Func Call w/ no arguments");
+    eat_token(T_LPAREN);
+    eat_token(T_RPAREN);
+    return NULL;
+}
+
+static ast_node_t* parse_primary_expression();
+
+/** TODO: Pratt parsing here:*/
+static ast_node_t* parse_expression(int precedence) {
+    ast_node_t* node;
+    if (expect_token(T_ADD, false)) {
+        eat_token(T_ADD);
+        node = init_ast_node();
+        node->type = A_BINOP_EXPR;
+        node->as.binary_op.type = OP_ADD;
+        node->as.binary_op.left = NULL;
+    }
+    node = parse_primary_expression();
+    return node;
+}
+
+/** This is the lowest level of expression*/
+static ast_node_t* parse_primary_expression() {
+    ast_node_t* node;
+    if (expect_token(T_LPAREN, false)) {
+        eat_token(T_LPAREN);
+        node = parse_expression(0);
+        eat_token(T_RPAREN); 
+    }
+    else if (expect_token(T_IDENTIFIER, false)) {
+        token_t id_token = eat_token(T_IDENTIFIER);
+        // Check if its a function call next
+        if (expect_token(T_LPAREN, false)) {
+            node = parse_function_call();
+            // Parse function call
+        }
+        else {
+            node = init_ast_node();
+            node->type = A_VAR_EXPR;
+            copy_token_to_id(id_token, node);
+            node->as.var_ref_expr.scope = 0; // Everything global scope for now?
+        }
+    }
+    else if (expect_token(T_INTLITERAL, false)) {
+        node = parse_int_literal();
+    }
+
+    return node;
+}
+
+
+
+
+
 static ast_node_t* parse_declaration() {
     // Function definition or declaration
-    if (expect_token(T_END)) {
+    if (expect_token(T_END, false)) {
+        eat_token(T_END);
         return NULL;
     }
 
     ast_node_t* node = init_ast_node();
     type_info_t type_info = parse_declaration_specifiers();
 
-    if (expect_token(T_MUL)) {
+    if (expect_token(T_MUL, false)) {
+        eat_token(T_MUL);
         type_info.is_pointer = true;
     }
 
+    // We always need an identifier here:
     token_t id_token = eat_token(T_IDENTIFIER);
 
     // Do we need multiple cases if we use two differnet unions 
     // even though the memory layout is the same?
     node->as.var_decl.initializer = NULL;
     node->as.var_decl.type_info = type_info;
-    if (id_token.contents_len > 16) {
-        printf("Error, identifier is too long.");
-    }
-    memcpy(node->as.var_decl.identifier, id_token.contents, id_token.contents_len);
-    // Null terminate the contents string so we can print it easier later
-    node->as.var_decl.identifier[id_token.contents_len] = '\0';
+    // Copies the token contents to the node identifier.
+    copy_token_to_id(id_token, node);
 
     // TODO: Implement multiple variable initialization.
     
-    if (expect_token(T_SEMICOLON)) {
+    if (expect_token(T_SEMICOLON, false)) {
+        eat_token(T_SEMICOLON);
         node->type = A_VAR_DECL;
+        node->as.var_decl.type_info = type_info;
         return node;
     }
-    else if (expect_token(T_ASSIGN)) {
+    else if (expect_token(T_ASSIGN, false)) {
+        eat_token(T_ASSIGN);
         // Parse variable initialization definition
         node->type = A_VAR_DECL;
         node->as.var_decl.type_info = type_info;
-        node->as.var_decl.initializer = parse_int_literal();
-        expect_token(T_SEMICOLON);
+        node->as.var_decl.initializer = parse_primary_expression();
+        eat_token(T_SEMICOLON);
         return node;
     }
-    else if (expect_token(T_LPAREN)) {
+    else if (expect_token(T_LPAREN, false)) {
+        eat_token(T_LPAREN);
         // Parse function declaration
         node->type = A_FUNCTION_DECL;
+        eat_token(T_RPAREN);
         return node;
     }
     

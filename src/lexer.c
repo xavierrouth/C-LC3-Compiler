@@ -206,6 +206,12 @@ token_t get_token() {
                     token.kind = T_ASSIGN;
                     return token;
                 }
+            case '-':
+                if (isdigit(c = next())) {
+                    token.contents_len = scan_int(c);
+                    token.kind = T_INTLITERAL;
+                    return token;
+                }
             case '(':
                 token.kind = T_LPAREN;
                 return token;
