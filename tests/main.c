@@ -1,6 +1,7 @@
 #include "munit.h"
 
 #include "lexer_tests.h"
+#include "parser_tests.h"
 
 static MunitResult
 test_compare(const MunitParameter params[], void* data) {
@@ -21,9 +22,11 @@ static MunitTest sanity[] = {
 };
 
 extern MunitTest lexer_suite_tests[];
+extern MunitTest parser_suite_tests[];
 
 static const MunitSuite other_suites[] = { 
-   { "/lexer", lexer_suite_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE }, 
+   { "/lexer", lexer_suite_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE },
+   { "/parser", parser_suite_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE },  
    { NULL, NULL, NULL, 0, MUNIT_SUITE_OPTION_NONE } 
 }; 
 

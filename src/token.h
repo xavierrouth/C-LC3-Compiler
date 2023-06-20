@@ -96,8 +96,8 @@ typedef enum TOKEN_KIND_ENUM {
     T_EXTERN,
     T_CHAR,
 
-    // Helper tokens
-    T_UNKNOWN,
+    // Helper
+    T_UKNOWN,
     T_INVALID,
     T_START,
     T_END
@@ -138,9 +138,10 @@ static const char * token_type_to_str(token_enum type) {
         case T_IF: return "T_IF";
         case T_EQUALITY: return "T_EQUALITY";
         case T_END: return "T_END";
+        case T_VOID: return "T_VOID";
     }
 
-    sprintf(buffer, "%d", type);
+    snprintf(buffer, 4, "%d", type);
     return buffer;
     //"Not printable";
 }

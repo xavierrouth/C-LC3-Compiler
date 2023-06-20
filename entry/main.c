@@ -1,6 +1,7 @@
 #include "token.h"
 #include "lexer.h"
 #include "parser.h"
+#include "ast.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,7 +11,7 @@
 int main(int argc, char **argv) {
     //FILE* f = fopen("../src/test1.c", "rb");
     FILE* f;
-    const char * path = "../tests/lexer/simple-1.c";
+    const char * path = "../tests/parser/simple-1.c";
 
     if ((f = fopen(path, "rb")) == NULL) { 
         printf("Invalid input file path.\n");
@@ -27,47 +28,46 @@ int main(int argc, char **argv) {
 
     file_buffer[fsize] = 0; //Set null terminator
 
-    const char* contents = "hell1o123123123123123123";
-    token_dbg_t debug = {.col = 1, .row = 1};
-    token_t t = {
-        .kind = T_IDENTIFIER,
-        .debug_info = {.col = 1, .row = 1},
-        .contents = "does this work?",
-        .contents_len = sizeof("does this work?") - 4
-    };
-
-    print_token(&t);
     // Init Lexer
     
     init_lexer(file_buffer, fsize);
+    token_t t = get_token();
     while(t.kind != T_END) {
         t = get_token();
         print_token(&t);
     }
 
+    init_lexer(file_buffer, fsize);
+
     printf("Done Lexering\n");
 
-    init_parser();
+    init_parser(true);
     printf("Done Init Parser\n");
     build_ast();
 
     printf("Done Building AST\n");
 
-    ast_node_t* root = get_root();
-    ast_node_t* c = root->program.cmpd;
-
-    
-
-    for (int i = 0; i < 5; i++) {
-        printf("%d\n", c->cmpd_stmt.statements[i]->lit_value);
+    ast_node_t* root = get_root();    
+    // Implement Print Node Function
+    for (int i = 0; i < 3; i++) {
+        printf("1\n");
     }
+    /**
+    for (int i = 0; i < 5; i++) {
+        printf("%d\n", root->as.program.body.nodes[i]->as.literal.value);
+    }
+    */
     /**
     while ((root = root->data.stmt.next) != NULL) {
         printf("%d\n", root->data.value);
     }
     */
-    
 
+   print_ast_node(root, 0, 1);
+   print_ast_node(root->as.program.body.nodes[0], 1, 0);
+   print_ast_node(root->as.program.body.nodes[1], 1, 1); 
+   print_ast_node(root->as.program.body.nodes[1]->as.var_decl.initializer, 2, 1); 
+   print_ast_node(root->as.program.body.nodes[2], 1, 1); 
 
     
 

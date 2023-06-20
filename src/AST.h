@@ -29,55 +29,93 @@ typedef enum AST_NODE_ENUM {
     A_INTEGER_LITERAL,
 } ast_node_enum;
 
-typedef struct AST_NODE_STRUCT {
+typedef struct AST_NODE_STRUCT ast_node_t;
+
+typedef struct AST_NODE_LIST {
+    ast_node_t** nodes;
+    int size;
+    int capacity;
+    size_t elem_size; 
+} ast_node_list;
+
+struct AST_NODE_STRUCT {
     ast_node_enum type;
-    union {
-        int lit_value; // For int literal
-        struct { // For Variable declarations
+    union { 
+        struct { // For int literal
+            int value;
+        } literal;
+        // Expressions:
+        struct {
+            ast_node_t* symbol;
+            ast_node_list parameters; 
+        } func_call;
+        struct { // A reference to an already defined symbol
             int id;
             int scope;
             type_enum type;
-        } var;
+        } symbol_ref;
         struct { // For Operations or assign statements
             ast_op_enum type; 
-            struct AST_NODE_STRUCT* left;
-            struct AST_NODE_STRUCT* right;
-        } op;
+            ast_node_t* left;
+            ast_node_t* right;
+        } binary_op;
+        struct { // For Operations or assign statements
+            ast_op_enum type; 
+            ast_node_t* child;
+        } unary_op;
+        struct { // For Operations or assign statements
+            ast_op_enum type; 
+            ast_node_t* first;
+            ast_node_t* second;
+            ast_node_t* third;
+        } ternary_op;
+        struct { // Dynamic list of statements
+            ast_node_list statements;
+        } commpound_stmt;
         struct {
-            int size;
-            int capacity;
-            struct AST_NODE_STRUCT** statements;
-        } cmpd_stmt;
+            ast_node_t* expression;
+        } expression_stmt;
         struct {
-            struct AST_NODE_STRUCT* expression;
-        } expr_stmt;
+            ast_node_t* expression;
+        } return_stmt;
         struct {
-            struct AST_NODE_STRUCT* expression;
-        } ret_stmt;
-        struct {
-            struct AST_NODE_STRUCT* expressions[3];
+            ast_node_t* initilization;
+            ast_node_t* condition;
+            ast_node_t* update;
         } for_stmt;
         struct {
-            struct AST_NODE_STRUCT* condition;
-            struct AST_NODE_STRUCT* if_stmt;
-            struct AST_NODE_STRUCT* else_stmt;
+            ast_node_t* condition;
+            ast_node_t* if_stmt;
+            ast_node_t* else_stmt;
         } if_stmt;
+        // Do we need to have a decl_stmt node 
         struct {
-            struct AST_NODE_STRUCT* variable;
+            ast_node_list declarations;
         } decl_stmt;
         struct {
-            struct AST_NODE_STRUCT* cmpd;
-            int main;
+            char identifier[16];
+            ast_node_t* initializer;
+            type_info_t type_info;
+        } var_decl;
+        struct {
+            char identifier[16];
+            ast_node_t* initializer;
+            type_info_t type_info;
+            // TODO: Parameters
+        } fun_decl;
+        struct {
+            ast_node_list body;
+            int main; // index into symbol table??
         } program;
-         
-    };
-} ast_node_t;
+    } as;
+};
 
 ast_node_t* init_ast_node();
 
-ast_node_t* init_compound_statement();
+ast_node_list ast_node_list_init();
 
-int compound_statement_push(ast_node_t* n, ast_node_t* statement);
+void ast_node_list_push(ast_node_list* list, ast_node_t* node);
 
+void print_ast_node(ast_node_t* node, int indentation, int print_type);
 
 #endif
