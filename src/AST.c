@@ -1,6 +1,7 @@
 #include "AST.h"
 #include "util.h"
 #include <stdio.h>
+#include <string.h>
 
 ast_node_t* init_ast_node() {
     ast_node_t* node = malloc(sizeof(*node));
@@ -54,6 +55,7 @@ static const char* ast_type_to_str(ast_node_enum type) {
         case A_VAR_DECL: return "A_VARL_DECL";
         case A_INTEGER_LITERAL: return "A_INTEGER_LITERAL";
         case A_VAR_EXPR: return "A_VAR_EXPR";
+        case A_FUNCTION_DECL: return "A_FUNCTION_DECL";
     }
     // Should probably clear the buffer lol.
     memset(print_buffer, 0, 64);
@@ -61,7 +63,7 @@ static const char* ast_type_to_str(ast_node_enum type) {
     return print_buffer;
 }
 
-static const char* ast_op_to_str(ast_node_enum type) {
+static const char* ast_op_to_str(ast_op_enum type) {
     switch(type) {
         case OP_ADD: return "+";
         case OP_SUB: return "-";
@@ -112,7 +114,7 @@ void print_ast_node(ast_node_t* node, int indentation) {
             snprintf(print_buffer, 64,
                 "<type=%s, identifier=\"%s\">\n", \
                 ast_type_to_str(node->type), 
-                node->as.fun_decl.identifier);
+                node->as.func_decl.identifier);
             printf_indent(indentation*3, print_buffer);
             return;            
         }
@@ -121,6 +123,14 @@ void print_ast_node(ast_node_t* node, int indentation) {
                 "<type=%s, op_type=\"%s\">\n", \
                 ast_type_to_str(node->type), 
                 ast_op_to_str(node->as.binary_op.type));
+            printf_indent(indentation*3, print_buffer);
+            return;
+        }
+        case A_ASSIGN_EXPR: {
+            snprintf(print_buffer, 64,
+                "<type=%s, identifier=\"%s\">\n", \
+                ast_type_to_str(node->type), 
+                node->as.assign_expr.identifier);
             printf_indent(indentation*3, print_buffer);
             return;
         }
@@ -160,6 +170,17 @@ void print_ast(ast_node_t* root, int indentation) {
             print_ast(root->as.binary_op.right, indentation + 1);
             return;
         }
+        case A_FUNCTION_DECL: {
+            print_ast_node(root, indentation);
+            for (int i = 0; i < (root->as.func_decl.body.size); i++)
+                print_ast(root->as.func_decl.body.nodes[i], indentation + 1);
+            return;
+        }
+        case A_ASSIGN_EXPR: {
+            print_ast_node(root, indentation);
+            print_ast(root->as.assign_expr.right, indentation + 1);
+            return;
+        }
         // Terminal Nodes:
         case A_INTEGER_LITERAL: 
         case A_VAR_EXPR: 
@@ -192,6 +213,18 @@ void free_ast(ast_node_t* root) {
             free(root);
             return;
         }
+        case A_FUNCTION_DECL: {
+            for (int i = 0; i < (root->as.func_decl.body.size); i++)
+                free_ast(root->as.func_decl.body.nodes[i]);
+            ast_node_list_free(root->as.func_decl.body);
+            free(root);
+            return;
+        }
+        case A_ASSIGN_EXPR: {
+            free_ast(root->as.assign_expr.right);
+            free(root);
+            return;
+        }
         // Expressions:
         case A_BINOP_EXPR: {
             free_ast(root->as.binary_op.left);
@@ -205,7 +238,7 @@ void free_ast(ast_node_t* root) {
             free(root);
             return;
         default:
-            printf("ERWTHJWK\n");
+            printf("NOT FREEED\n");
             return;
     }
     return;

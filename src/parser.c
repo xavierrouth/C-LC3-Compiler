@@ -10,6 +10,11 @@
 
 static parser_t Parser; // Initialized to 0
 
+// Forward decls:
+static ast_node_t* parse_declaration();
+
+static ast_node_t* parse_var_declaration(token_t id_token, type_info_t type_info);
+
 static token_t next_token() 
 {
     token_t token;
@@ -123,6 +128,7 @@ static type_info_t parse_declaration_specifiers() {
     // const, volatile
     token_t t;
     type_info_t type_info = {0};
+    type_info.type = NOTYPE;
     
     while((t = next_token()).kind != T_END) {
         switch (t.kind) {
@@ -153,7 +159,9 @@ static type_info_t parse_declaration_specifiers() {
             case T_ENUM:
                 continue;
             default:
-               goto end;
+                // TODO: Better error handling
+                
+                goto end;
         }
     }
     end: 
@@ -217,6 +225,12 @@ static ast_node_t* parse_expression(int binding_power) {
     int right_power = 0;
     if (expect_token(T_INTLITERAL, false))
         left = parse_int_literal();
+    // Simplify prefix expressions:
+    else if (expect_token(T_LPAREN, false)) {
+        eat_token(T_LPAREN);
+        left = parse_expression(0);
+        eat_token(T_RPAREN);
+    }
     else if (expect_token(T_ADD, false)) {
         eat_token(T_ADD);
         left_power = prefix_binding_power[OP_ADD];
@@ -240,11 +254,15 @@ static ast_node_t* parse_expression(int binding_power) {
         left->as.binary_op.left = negate_node;
         left->as.binary_op.right = right;
     }
-    
+
+    // Infix Expressions:
     /** Consume tokens until there is a token whose binding power is equal or lower than rbp*/
     while (true) {
         if (expect_token(T_SEMICOLON, false)) {
             //eat_token(T_SEMICOLON);
+            break;
+        }
+        else if(expect_token(T_RPAREN, false)) {
             break;
         }
         // For now just assume that the next token is binop.
@@ -312,6 +330,78 @@ static ast_node_t* parse_expression(int right_binding_power) {
 }
 */
 
+static ast_node_t* parse_statement() {
+    ast_node_t* node;
+    if (expect_token(T_END, false)) {
+        eat_token(T_END);
+        return NULL;
+    }
+
+    // Attempt var declaration/
+    type_info_t type_info = parse_declaration_specifiers(); 
+
+
+    if (type_info.type != NOTYPE) {
+        if (expect_token(T_IDENTIFIER, false)) {
+            token_t id_token = eat_token(T_IDENTIFIER);
+            return parse_var_declaration(id_token, type_info); // This eats semicolon I think
+        }
+    }
+    
+    // Attempt if statement
+
+
+    // Attempt loop statement
+
+    // Must be expr statement.
+
+    if (expect_token(T_IDENTIFIER, false)) {
+        
+        token_t id_token = eat_token(T_IDENTIFIER);
+        if (expect_token(T_ASSIGN, false)) {
+            node = init_ast_node();
+            node->type = A_ASSIGN_EXPR;
+            copy_token_to_id(id_token, node);
+            eat_token(T_ASSIGN);
+            node->as.assign_expr.right = parse_expression(0);
+            eat_token(T_SEMICOLON);
+            return node;
+        }
+    }
+
+    return NULL;
+
+
+
+}
+static ast_node_t* parse_var_declaration(token_t id_token, type_info_t type_info) {
+    ast_node_t* node = init_ast_node();
+    node->as.var_decl.initializer = NULL;
+    node->as.var_decl.type_info = type_info;
+    // Copies the token contents to the node identifier.
+    copy_token_to_id(id_token, node);
+
+    // TODO: Implement multiple variable initialization.
+    
+    if (expect_token(T_SEMICOLON, false)) {
+        eat_token(T_SEMICOLON); // Don't eat it??/
+        node->type = A_VAR_DECL;
+        node->as.var_decl.type_info = type_info;
+        return node;
+    }
+    else if (expect_token(T_ASSIGN, false)) {
+        eat_token(T_ASSIGN);
+        // Parse variable initialization definition
+        node->type = A_VAR_DECL;
+        node->as.var_decl.type_info = type_info;
+        node->as.var_decl.initializer = parse_expression(0);
+        eat_token(T_SEMICOLON);
+        return node;
+    }
+    printf("Probably shouldn't get here\n");
+    return NULL;
+}
+
 static ast_node_t* parse_declaration() {
     // Function definition or declaration
     if (expect_token(T_END, false)) {
@@ -363,9 +453,37 @@ static ast_node_t* parse_declaration() {
         eat_token(T_LPAREN);
         // Parse function declaration
         node->type = A_FUNCTION_DECL;
+
+        if (!expect_token(T_RPAREN, false)) {
+            token_t t = next_token();
+            while(t.kind != T_END) {
+                break;
+            }
+        }
         eat_token(T_RPAREN);
-        return node;
+        // If there is a semicolon, just return this
+        if (expect_token(T_SEMICOLON, false)) {
+            // Body is unitiliazed.
+            // TODO: Functions withouts bodies are not supported yet.
+            // ie definitions but not declarations
+            return node;
+        }
+        else if (expect_token(T_LBRACE, false)){
+            eat_token(T_LBRACE);
+            node->as.func_decl.body = ast_node_list_init();
+            ast_node_t* stmt;
+            // TOOD: Implement parse_stmt;
+            // parse_stmt needs to choose between parse decleration and parse something else
+            while ((stmt = parse_statement()) != NULL) {
+                ast_node_list_push(&(node->as.func_decl.body), stmt);
+                if (peek_token().kind == T_RBRACE)
+                    break;
+            }
+            eat_token(T_RBRACE);
+            return node;
+        }
     }
+    // Can either 
     
 
     return NULL;

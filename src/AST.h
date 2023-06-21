@@ -37,6 +37,8 @@ typedef struct AST_NODE_LIST {
     size_t elem_size; 
 } ast_node_list;
 
+//TODO: Move all char identifier[16]s to the symbol ref type.
+// This way we can do scope correctly
 struct AST_NODE_STRUCT {
     ast_node_enum type;
     union { 
@@ -66,6 +68,11 @@ struct AST_NODE_STRUCT {
             type_enum type;
         } symbol_ref;
         */
+        struct {
+            //ast_node_t* left; // This has to be an indeitifer
+            char identifier[16];
+            ast_node_t* right;
+        } assign_expr; // Assign expr vs assign statement.
         struct { // For Operations or assign statements
             ast_op_enum type; 
             ast_node_t* left;
@@ -111,10 +118,10 @@ struct AST_NODE_STRUCT {
         } var_decl;
         struct {
             char identifier[16];
-            ast_node_t* initializer;
+            ast_node_list body;
             type_info_t type_info;
             // TODO: Parameters
-        } fun_decl;
+        } func_decl;
         struct {
             ast_node_list body;
             int main; // index into symbol table??

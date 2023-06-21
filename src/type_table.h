@@ -8,6 +8,7 @@ typedef enum TYPE_ENUM {
     CHAR,
     PTR,
     VOID,
+    NOTYPE,
 } type_enum;
 
 typedef struct VAR_INFO_STRUCT {

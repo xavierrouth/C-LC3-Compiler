@@ -6,8 +6,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-
-
 int main(int argc, char **argv) {
     //FILE* f = fopen("../src/test1.c", "rb");
     FILE* f;
