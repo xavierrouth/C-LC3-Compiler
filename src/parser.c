@@ -214,6 +214,15 @@ static ast_op_enum token_type_to_op(token_enum type) {
     }
 }
 
+static ast_node_t* parse_var_expr() {
+    expect_token(T_IDENTIFIER, true);
+    ast_node_t* node = init_ast_node();
+    node->type = A_VAR_EXPR;
+    token_t id_token = eat_token(T_IDENTIFIER);
+    copy_token_to_id(id_token, node);
+    node->as.var_ref_expr.scope = 0;
+    return node; 
+}
 /** TODO: Pratt parsing here:*/
 static ast_node_t* parse_expression(int binding_power) {
     
@@ -225,6 +234,9 @@ static ast_node_t* parse_expression(int binding_power) {
     int right_power = 0;
     if (expect_token(T_INTLITERAL, false))
         left = parse_int_literal();
+    else if (expect_token(T_IDENTIFIER, false)) {
+        left = parse_var_expr();
+    }
     // Simplify prefix expressions:
     else if (expect_token(T_LPAREN, false)) {
         eat_token(T_LPAREN);
@@ -330,6 +342,20 @@ static ast_node_t* parse_expression(int right_binding_power) {
 }
 */
 
+// Todo: Add error recovery to everything
+static ast_node_t* parse_return_statement() {
+    eat_token(T_RETURN);
+    ast_node_t* node = init_ast_node();
+    node->type = A_RETURN_STMT;
+    node->as.return_stmt.expression = parse_expression(0);
+    eat_token(T_SEMICOLON);
+    return node;
+}
+
+static ast_node_t* parse_if_statement() {
+    return NULL;
+}
+
 static ast_node_t* parse_statement() {
     ast_node_t* node;
     if (expect_token(T_END, false)) {
@@ -337,9 +363,16 @@ static ast_node_t* parse_statement() {
         return NULL;
     }
 
+    // Attempt statement 
+    if (expect_token(T_RETURN, false)) {
+        return parse_return_statement();
+    }
+    else if (expect_token(T_IF, false)) {
+        return parse_if_statement();
+    }
+
     // Attempt var declaration/
     type_info_t type_info = parse_declaration_specifiers(); 
-
 
     if (type_info.type != NOTYPE) {
         if (expect_token(T_IDENTIFIER, false)) {
@@ -453,13 +486,30 @@ static ast_node_t* parse_declaration() {
         eat_token(T_LPAREN);
         // Parse function declaration
         node->type = A_FUNCTION_DECL;
+        node->as.func_decl.parameters = ast_node_list_init();
 
-        if (!expect_token(T_RPAREN, false)) {
-            token_t t = next_token();
-            while(t.kind != T_END) {
+        // While the next token isn't a Rparen, parse parameters
+        while (!expect_token(T_RPAREN, false)) {
+            // Expect a type (int only for now)
+            eat_token(T_INT);
+            type_info_t type_info = {0};
+            type_info.type = INT;
+
+            // Expect a name
+            id_token = eat_token(T_IDENTIFIER);
+            ast_node_t* param_node = init_ast_node();
+            param_node->type = A_VAR_DECL; //
+            copy_token_to_id(id_token, param_node);
+            
+            param_node->as.var_decl.type_info = type_info;
+            ast_node_list_push(&(node->as.func_decl.parameters), param_node);
+            // Expect a comma maybe
+            // If there isn't a comma, then break.
+            if (!expect_token(T_COMMA, false))
                 break;
-            }
+            eat_token(T_COMMA);
         }
+
         eat_token(T_RPAREN);
         // If there is a semicolon, just return this
         if (expect_token(T_SEMICOLON, false)) {
@@ -468,6 +518,7 @@ static ast_node_t* parse_declaration() {
             // ie definitions but not declarations
             return node;
         }
+        // Parse function body:
         else if (expect_token(T_LBRACE, false)){
             eat_token(T_LBRACE);
             node->as.func_decl.body = ast_node_list_init();

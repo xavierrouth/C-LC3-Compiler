@@ -26,6 +26,7 @@ typedef enum AST_NODE_ENUM {
     A_UNOP_EXPR,
     A_ASSIGN_EXPR,
     A_INTEGER_LITERAL,
+    A_RETURN_STMT,
 } ast_node_enum;
 
 typedef struct AST_NODE_STRUCT ast_node_t;
@@ -121,7 +122,8 @@ struct AST_NODE_STRUCT {
             ast_node_list body;
             type_info_t type_info;
             // TODO: Parameters
-        } func_decl;
+            ast_node_list parameters; // This should be a bunch of variable decls.
+        } func_decl; // Do the parameters need to have their own parm var decl node type?
         struct {
             ast_node_list body;
             int main; // index into symbol table??

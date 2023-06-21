@@ -16,4 +16,6 @@ typedef struct VAR_INFO_STRUCT {
     bool is_pointer;
 } type_info_t;
 
+char* type_info_to_str(type_info_t type_info);
+
 #endif

@@ -161,6 +161,7 @@ static token_enum char_to_token_type(char c) {
         case '+': return T_ADD;
         case '-': return T_SUB;
         case ';': return T_SEMICOLON;
+        case ',': return T_COMMA;
     }
     return T_DEFAULT;
 }
