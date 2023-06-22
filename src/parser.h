@@ -28,12 +28,22 @@ typedef struct PARSER_STRUCT {
     ast_node_t* ast_root;
 } parser_t;
 
+typedef enum PARSER_ERROR_ENUM {
+    ERROR_MISSING_TOKEN,
+    ERROR_MISSING_SEMICOLON,
+} parser_error_enum;
+
+// Things we want to include are line / col information mostly.
+typedef struct PARSER_ERROR_STRUCT {
+    token_t error_token;
+    // Other things?? IDK
+    void (*error_handler)(char*); // Some function that accepts a message (char*)
+} parser_error_t;
+
 void init_parser(bool error_mode);
 
 void build_ast();
 
 ast_node_t* get_root();
-
-void teardown_ast();
 
 #endif

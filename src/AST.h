@@ -5,6 +5,9 @@
 
 #include <stdlib.h>
 
+#define POSTORDER 1
+#define PREORDER 1
+
 typedef enum AST_OP_ENUM {
     OP_ADD,
     OP_SUB,
@@ -28,8 +31,11 @@ typedef enum AST_NODE_ENUM {
     A_INTEGER_LITERAL,
     A_RETURN_STMT,
 } ast_node_enum;
-
 typedef struct AST_NODE_STRUCT ast_node_t;
+
+
+
+
 
 typedef struct AST_NODE_LIST {
     ast_node_t** nodes;
@@ -130,12 +136,36 @@ struct AST_NODE_STRUCT {
         } program;
     } as;
 };
- 
+
+typedef struct AST_NODE_VISITOR {
+    enum {
+        PRINT_AST,
+        FREE_AST,
+    } visitor_type;
+    bool traversal_type; // POSTORDER or PREORDER
+    union {
+        struct {
+            void (*func)(ast_node_t* node); // free_ast
+        } free_ast;
+        struct {
+            void (*func)(ast_node_t* node, int indentation);
+            int indentation;
+        } print_ast;
+    } as;
+} ast_node_visitor;
+
+//TODO: Put the AST in the same place for all these function names, either beginning or end.
+// TODO: Allow common initializer to init an ast node either on the stack or on the heap.
 ast_node_t* init_ast_node();
+
+//ast_node_t* create_ast_node();
 
 ast_node_list ast_node_list_init();
 
 void ast_node_list_push(ast_node_list* list, ast_node_t* node);
+
+// TODO: Visitor Pattern
+void print_ast_w_visitor(ast_node_t* node);
 
 void print_ast_node(ast_node_t* node, int indentation);
 

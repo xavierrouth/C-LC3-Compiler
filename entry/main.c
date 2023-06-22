@@ -67,6 +67,7 @@ int main(int argc, char **argv) {
     */
 
     print_ast(root, 0);
+    print_ast_w_visitor(root);
     free_ast(root);
 
 

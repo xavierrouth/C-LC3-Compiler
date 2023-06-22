@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
+
+
 ast_node_t* init_ast_node() {
     ast_node_t* node = malloc(sizeof(*node));
     return node;
@@ -77,6 +79,91 @@ static const char* ast_op_to_str(ast_op_enum type) {
     return print_buffer;
 }
 
+// This is disgusting I regret everything.
+static ast_node_visitor* visitor_print_init() {
+    ast_node_visitor* visitor = malloc(sizeof(ast_node_visitor));
+    visitor->visitor_type = PRINT_AST;
+    visitor->traversal_type = PREORDER;
+    visitor->as.print_ast.indentation = -1;
+    visitor->as.print_ast.func = &print_ast_node;
+    return visitor;
+}
+
+static void visitor_call(ast_node_visitor* visitor, ast_node_t* node) {
+    switch (visitor->visitor_type) {
+        case PRINT_AST: {
+            visitor->as.print_ast.func(node, visitor->as.print_ast.indentation);
+            return;
+        }
+    }
+}
+
+static void visitor_begin(ast_node_visitor* visitor, ast_node_t* node) {
+    switch (visitor->visitor_type) {
+        case PRINT_AST: {
+            visitor->as.print_ast.indentation++;
+            return;
+        }
+    }
+}
+static void visitor_end(ast_node_visitor* visitor, ast_node_t* node) {
+    // Decrement indentation?
+    switch (visitor->visitor_type) {
+        case PRINT_AST: {
+            visitor->as.print_ast.indentation--;
+            return;
+        }
+    }
+}
+
+// Ideally bool would be templated by traversal_type T/F.
+// Then we don't have to repeat code but we also get two versions that are both fast.
+// 'branch predictor will take care of it'
+static void ast_traversal(ast_node_t* root, ast_node_visitor* visitor) {
+    //visitor_begin(visitor, root);
+    if(root == NULL)
+        return;
+    visitor_begin(visitor, root);
+    if (visitor->traversal_type == POSTORDER);
+        visitor_call(visitor, root); // Do whatever other stuff we want this node;
+
+    // Traverse to the children.
+    switch(root->type) {      
+        case A_PROGRAM: {
+            for (int i = 0; i < (root->as.program.body.size); i++)
+                ast_traversal(root->as.program.body.nodes[i], visitor);
+            return;
+        }
+        case A_VAR_DECL: {
+            ast_traversal(root->as.var_decl.initializer, visitor);
+            return;
+        }
+        case A_BINOP_EXPR: {
+            ast_traversal(root->as.binary_op.left, visitor);
+            ast_traversal(root->as.binary_op.right, visitor);
+            return;
+        }
+        case A_FUNCTION_DECL: {
+            for (int i = 0; i < (root->as.func_decl.parameters.size); i++)
+                ast_traversal(root->as.func_decl.parameters.nodes[i], visitor);
+            for (int i = 0; i < (root->as.func_decl.body.size); i++)
+                ast_traversal(root->as.func_decl.body.nodes[i], visitor);
+            return;
+        }
+    }
+
+    if (visitor->traversal_type == PREORDER);
+        visitor_call(visitor, root); // Do whatever other stuff we want this node;
+    visitor_end(visitor, root);
+    return;
+}
+
+void print_ast_w_visitor(ast_node_t* root) {
+    ast_node_visitor* visitor = visitor_print_init();
+    ast_traversal(root, visitor);
+    free(visitor);
+    return;
+}
 
 void print_ast_node(ast_node_t* node, int indentation) {
     switch (node->type) {
