@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 #define POSTORDER 1
-#define PREORDER 1
+#define PREORDER 0
 
 typedef enum AST_OP_ENUM {
     OP_ADD,
@@ -32,10 +32,6 @@ typedef enum AST_NODE_ENUM {
     A_RETURN_STMT,
 } ast_node_enum;
 typedef struct AST_NODE_STRUCT ast_node_t;
-
-
-
-
 
 typedef struct AST_NODE_LIST {
     ast_node_t** nodes;
@@ -164,12 +160,13 @@ ast_node_list ast_node_list_init();
 
 void ast_node_list_push(ast_node_list* list, ast_node_t* node);
 
-// TODO: Visitor Pattern
-void print_ast_w_visitor(ast_node_t* node);
+// Visitor options:
 
 void print_ast_node(ast_node_t* node, int indentation);
 
-void print_ast(ast_node_t* root, int indentation);
+void print_ast(ast_node_t* root);
+
+void free_ast_node(ast_node_t* node);
 
 void free_ast(ast_node_t* root);
 

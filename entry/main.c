@@ -66,8 +66,7 @@ int main(int argc, char **argv) {
     print_ast_node(root->as.program.body.nodes[2], 1); 
     */
 
-    print_ast(root, 0);
-    print_ast_w_visitor(root);
+    print_ast(root);
     free_ast(root);
 
 
