@@ -435,6 +435,25 @@ static ast_node_t* parse_var_declaration(token_t id_token, type_info_t type_info
     return NULL;
 }
 
+static ast_node_t* parse_compound_statement() {
+    ast_node_t* node = init_ast_node();
+    node->type = A_COMPOUND_STMT;
+   
+    eat_token(T_LBRACE);
+    // Parse compound statement; // EATS THE BRACES
+    node->as.commpound_stmt.statements = ast_node_list_init();
+    ast_node_t* stmt;
+    // TOOD: Implement parse_stmt;
+    // parse_stmt needs to choose between parse decleration and parse something else
+    while ((stmt = parse_statement()) != NULL) {
+        ast_node_list_push(&(node->as.commpound_stmt.statements), stmt);
+        if (peek_token().kind == T_RBRACE)
+            break;
+    }
+    eat_token(T_RBRACE);
+    return node;
+}
+
 static ast_node_t* parse_declaration() {
     // Function definition or declaration
     if (expect_token(T_END, false)) {
@@ -465,14 +484,15 @@ static ast_node_t* parse_declaration() {
     // Copies the token contents to the node identifier.
     copy_token_to_id(id_token, node);
 
-    // TODO: Implement multiple variable initialization.
-    
+    // TODO: Parse multiple variable initialization.
+    // Variable w/ no Initializer.
     if (expect_token(T_SEMICOLON, false)) {
         eat_token(T_SEMICOLON); // Don't eat it??/
         node->type = A_VAR_DECL;
         node->as.var_decl.type_info = type_info;
         return node;
     }
+    // Variable w/ Initializer.
     else if (expect_token(T_ASSIGN, false)) {
         eat_token(T_ASSIGN);
         // Parse variable initialization definition
@@ -482,6 +502,7 @@ static ast_node_t* parse_declaration() {
         eat_token(T_SEMICOLON);
         return node;
     }
+    // Function Declaration:
     else if (expect_token(T_LPAREN, false)) {
         eat_token(T_LPAREN);
         // Parse function declaration
@@ -497,48 +518,35 @@ static ast_node_t* parse_declaration() {
 
             // Expect a name
             id_token = eat_token(T_IDENTIFIER);
-            ast_node_t* param_node = init_ast_node();
-            param_node->type = A_VAR_DECL; //
-            copy_token_to_id(id_token, param_node);
+            ast_node_t* parameter = init_ast_node();
+            parameter->type = A_VAR_DECL; //
+            copy_token_to_id(id_token, parameter);
             
-            param_node->as.var_decl.type_info = type_info;
-            ast_node_list_push(&(node->as.func_decl.parameters), param_node);
+            parameter->as.var_decl.type_info = type_info;
+            ast_node_list_push(&(node->as.func_decl.parameters), parameter);
             // Expect a comma maybe
             // If there isn't a comma, then break.
-            if (!expect_token(T_COMMA, false))
+            if (!expect_token(T_COMMA, false)) {}
                 break;
             eat_token(T_COMMA);
-        }
-
+        } // Done parsing parameters.
         eat_token(T_RPAREN);
-        // If there is a semicolon, just return this
+
+        // Function without a body.
         if (expect_token(T_SEMICOLON, false)) {
             // Body is unitiliazed.
             // TODO: Functions withouts bodies are not supported yet.
             // ie definitions but not declarations
             return node;
         }
-        // Parse function body:
+        // Function with a body.
         else if (expect_token(T_LBRACE, false)){
-            eat_token(T_LBRACE);
-            node->as.func_decl.body = ast_node_list_init();
-            ast_node_t* stmt;
-            // TOOD: Implement parse_stmt;
-            // parse_stmt needs to choose between parse decleration and parse something else
-            while ((stmt = parse_statement()) != NULL) {
-                ast_node_list_push(&(node->as.func_decl.body), stmt);
-                if (peek_token().kind == T_RBRACE)
-                    break;
-            }
-            eat_token(T_RBRACE);
+            node->as.func_decl.body = parse_compound_statement();
             return node;
         }
     }
-    // Can either 
-    
-
+    // Something went wrong.
     return NULL;
-    
 }
 
 

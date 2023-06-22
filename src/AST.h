@@ -18,6 +18,7 @@ typedef enum AST_OP_ENUM {
 } ast_op_enum;
 
 typedef enum AST_NODE_ENUM {
+    A_UNKNOWN,
     A_PROGRAM,
     A_VAR_DECL,
     A_FUNCTION_CALL,
@@ -91,8 +92,9 @@ struct AST_NODE_STRUCT {
             ast_node_t* second;
             ast_node_t* third;
         } ternary_op;
-        struct { // Dynamic list of statements
+        struct { // This is needed for scoping
             ast_node_list statements;
+            int scope_id;
         } commpound_stmt;
         struct {
             ast_node_t* expression;
@@ -121,7 +123,7 @@ struct AST_NODE_STRUCT {
         } var_decl;
         struct {
             char identifier[16];
-            ast_node_list body;
+            ast_node_t* body; // Compound statement
             type_info_t type_info;
             // TODO: Parameters
             ast_node_list parameters; // This should be a bunch of variable decls.

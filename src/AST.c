@@ -5,6 +5,9 @@
 
 ast_node_t* init_ast_node() {
     ast_node_t* node = malloc(sizeof(*node));
+    memset(node, 0, sizeof(ast_node_t));
+    node->type = A_UNKNOWN;
+    
     return node;
 }
 
@@ -84,6 +87,7 @@ static ast_node_visitor* visitor_free_init() {
     return visitor;
 }
 
+// Call the correct function with the correct parameters
 static void visitor_call(ast_node_visitor* visitor, ast_node_t* node) {
     switch (visitor->visitor_type) {
         case PRINT_AST: {
@@ -123,8 +127,12 @@ void free_ast_node(ast_node_t* node) {
             return;
         }
         case A_FUNCTION_DECL: {
-            ast_node_list_free(node->as.func_decl.body);
             ast_node_list_free(node->as.func_decl.parameters);
+            free(node);
+            return;
+        }
+        case A_COMPOUND_STMT: {
+            ast_node_list_free(node->as.commpound_stmt.statements);
             free(node);
             return;
         }
@@ -151,6 +159,7 @@ static void ast_traversal(ast_node_t* root, ast_node_visitor* visitor) {
     //visitor_begin(visitor, root);
     if(root == NULL)
         return;
+
     visitor_begin(visitor, root);
     if (visitor->traversal_type == PREORDER)
         visitor_call(visitor, root); // Do whatever other stuff we want this node;
@@ -177,8 +186,7 @@ static void ast_traversal(ast_node_t* root, ast_node_visitor* visitor) {
             // that might be helpful to have instead of the func_decl_body.
             for (int i = 0; i < (root->as.func_decl.parameters.size); i++)
                 ast_traversal(root->as.func_decl.parameters.nodes[i], visitor);
-            for (int i = 0; i < (root->as.func_decl.body.size); i++)
-                ast_traversal(root->as.func_decl.body.nodes[i], visitor);
+            ast_traversal(root->as.func_decl.body, visitor);
             break;
         }
         case A_ASSIGN_EXPR: {
@@ -187,6 +195,11 @@ static void ast_traversal(ast_node_t* root, ast_node_visitor* visitor) {
         }
         case A_RETURN_STMT: {
             ast_traversal(root->as.return_stmt.expression, visitor);
+            break;
+        }
+        case A_COMPOUND_STMT: {
+            for (int i = 0; i < (root->as.commpound_stmt.statements.size); i++)
+                ast_traversal(root->as.commpound_stmt.statements.nodes[i], visitor);
             break;
         }
         // Terminal nodes:
@@ -280,6 +293,14 @@ void print_ast_node(ast_node_t* node, int indentation) {
             snprintf(print_buffer, 64,
                 "<node=%s>\n", \
                 ast_type_to_str(node->type));
+            printf_indent(indentation*3, print_buffer);
+            return;
+        }
+        case A_COMPOUND_STMT: {
+            snprintf(print_buffer, 64,
+                "<node=%s, num_statements=\"%d\">\n", \
+                ast_type_to_str(node->type),
+                node->as.commpound_stmt.statements.size);
             printf_indent(indentation*3, print_buffer);
             return;
         }

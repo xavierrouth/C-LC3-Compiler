@@ -1,6 +1,8 @@
 int a;
 
-int main() {
-    int pringlehead = 3;
+int main(int param) {
+    int a;
+    a = 3 + 4;
+    a = 543534 + 2342890;
+    a = -1 + -(23*4);
 }
-int indentaiont;
