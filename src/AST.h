@@ -32,6 +32,7 @@ typedef enum AST_NODE_ENUM {
     A_INTEGER_LITERAL,
     A_RETURN_STMT,
 } ast_node_enum;
+
 typedef struct AST_NODE_STRUCT ast_node_t;
 
 typedef struct AST_NODE_LIST {
@@ -139,27 +140,6 @@ struct AST_NODE_STRUCT {
 // themselves in the function that they are calling?
 // Then they can edit stuff yknow.
 // Well only ones that need to have to actually.
-typedef struct AST_NODE_VISITOR {
-    enum {
-        PRINT_AST,
-        FREE_AST,
-        CHECK_AST,
-    } visitor_type;
-    bool traversal_type; // POSTORDER or PREORDER
-    union {
-        struct {
-            void (*func)(ast_node_t* node); // free_ast
-        } free_ast;
-        struct {
-            void (*func)(ast_node_t* node, int indentation);
-            int indentation;
-        } print_ast;
-        struct {
-            ast_node_enum* results;
-            int index;
-        } check_ast;
-    } as;
-} ast_node_visitor;
 
 //TODO: Put the AST in the same place for all these function names, either beginning or end.
 // TODO: Allow common initializer to init an ast node either on the stack or on the heap.
@@ -171,17 +151,5 @@ ast_node_list ast_node_list_init();
 
 void ast_node_list_push(ast_node_list* list, ast_node_t* node);
 
-// Visitor options:
-
-void print_ast_node(ast_node_t* node, int indentation);
-
-void print_ast(ast_node_t* root);
-
-void free_ast_node(ast_node_t* node);
-
-void free_ast(ast_node_t* root);
-
-// No func for node as it is a one liner.
-void check_ast(ast_node_t* root, ast_node_enum* results);
 
 #endif
