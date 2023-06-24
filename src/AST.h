@@ -51,7 +51,7 @@ struct AST_NODE_STRUCT {
         } literal;
         struct {
             char identifier[16];
-            ast_node_list parameters; // A bunch of expressions.
+            ast_node_list arguments; // A bunch of expressions.
         } func_call_expr;
         struct {
             char identifier[16];
@@ -135,10 +135,15 @@ struct AST_NODE_STRUCT {
     } as;
 };
 
+// TODO: Should visitors pass a refernece to 
+// themselves in the function that they are calling?
+// Then they can edit stuff yknow.
+// Well only ones that need to have to actually.
 typedef struct AST_NODE_VISITOR {
     enum {
         PRINT_AST,
         FREE_AST,
+        CHECK_AST,
     } visitor_type;
     bool traversal_type; // POSTORDER or PREORDER
     union {
@@ -149,6 +154,10 @@ typedef struct AST_NODE_VISITOR {
             void (*func)(ast_node_t* node, int indentation);
             int indentation;
         } print_ast;
+        struct {
+            ast_node_enum* results;
+            int index;
+        } check_ast;
     } as;
 } ast_node_visitor;
 
@@ -171,5 +180,8 @@ void print_ast(ast_node_t* root);
 void free_ast_node(ast_node_t* node);
 
 void free_ast(ast_node_t* root);
+
+// No func for node as it is a one liner.
+void check_ast(ast_node_t* root, ast_node_enum* results);
 
 #endif

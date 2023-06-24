@@ -13,6 +13,8 @@ static parser_t Parser; // Initialized to 0
 // Forward decls:
 static ast_node_t* parse_declaration();
 
+static ast_node_t* parse_expression(int binding_power);
+
 static ast_node_t* parse_var_declaration(token_t id_token, type_info_t type_info);
 
 static token_t next_token() 
@@ -195,14 +197,6 @@ static ast_node_t* parse_int_literal() {
     return node;
 }
 
-static ast_node_t* parse_function_call() {
-    // TODO: Implement this
-    printf("Parsing Func Call w/ no arguments");
-    eat_token(T_LPAREN);
-    eat_token(T_RPAREN);
-    return NULL;
-}
-
 static ast_node_t* parse_primary_expression();
 
 static ast_op_enum token_type_to_op(token_enum type) {
@@ -214,16 +208,45 @@ static ast_op_enum token_type_to_op(token_enum type) {
     }
 }
 
-static ast_node_t* parse_var_expr() {
-    expect_token(T_IDENTIFIER, true);
+static ast_node_t* parse_function_call() {
+    eat_token(T_LPAREN);
     ast_node_t* node = init_ast_node();
-    node->type = A_VAR_EXPR;
-    token_t id_token = eat_token(T_IDENTIFIER);
-    copy_token_to_id(id_token, node);
-    node->as.var_ref_expr.scope = 0;
-    return node; 
+    node->type = A_FUNCTION_CALL;
+    ast_node_t* argument;
+    node->as.func_call_expr.arguments = ast_node_list_init();
+    
+    while ((argument = parse_expression(0)) != NULL) {
+        // How will this error???
+        ast_node_list_push(&(node->as.func_call_expr), argument);
+        if (expect_token(T_COMMA, false)) {
+            eat_token(T_COMMA);
+            continue;
+        }
+        else {
+            break;
+        }
+    }
+    eat_token(T_RPAREN);
+    return node;
 }
-/** TODO: Pratt parsing here:*/
+
+static ast_node_t* parse_symbol_ref() {
+    token_t id = eat_token(T_IDENTIFIER);
+    ast_node_t* node;
+    // Function Call
+    if (expect_token(T_LPAREN, false)) {
+        node = parse_function_call();
+    }
+    // Otherwise its just a variable ref
+    else {
+        node = init_ast_node();
+        node->type = A_VAR_EXPR;
+    }
+    copy_token_to_id(id, node);
+    return node;
+    
+}
+
 static ast_node_t* parse_expression(int binding_power) {
     
     // Do left token
@@ -235,7 +258,7 @@ static ast_node_t* parse_expression(int binding_power) {
     if (expect_token(T_INTLITERAL, false))
         left = parse_int_literal();
     else if (expect_token(T_IDENTIFIER, false)) {
-        left = parse_var_expr();
+        left = parse_symbol_ref();
     }
     // Simplify prefix expressions:
     else if (expect_token(T_LPAREN, false)) {
@@ -270,11 +293,15 @@ static ast_node_t* parse_expression(int binding_power) {
     // Infix Expressions:
     /** Consume tokens until there is a token whose binding power is equal or lower than rbp*/
     while (true) {
+        // These are things that definetly mark the end of an expression.
         if (expect_token(T_SEMICOLON, false)) {
             //eat_token(T_SEMICOLON);
             break;
         }
         else if(expect_token(T_RPAREN, false)) {
+            break;
+        }
+        else if(expect_token(T_COMMA, false)) {
             break;
         }
         // For now just assume that the next token is binop.
@@ -312,37 +339,6 @@ static ast_node_t* parse_expression(int binding_power) {
     return left;
 }
 
-/**
-static ast_node_t* parse_expression(int right_binding_power) {
-    ast_node_t* node;
-    if (expect_token(T_LPAREN, false)) {
-        eat_token(T_LPAREN);
-        node = parse_expression(0);
-        eat_token(T_RPAREN); 
-    }
-    else if (expect_token(T_IDENTIFIER, false)) {
-        token_t id_token = eat_token(T_IDENTIFIER);
-        // Check if its a function call next
-        if (expect_token(T_LPAREN, false)) {
-            node = parse_function_call();
-            // Parse function call
-        }
-        else {
-            node = init_ast_node();
-            node->type = A_VAR_EXPR;
-            copy_token_to_id(id_token, node);
-            node->as.var_ref_expr.scope = 0; // Everything global scope for now?
-        }
-    }
-    else if (expect_token(T_INTLITERAL, false)) {
-        node = parse_int_literal();
-    }
-
-    return node;
-}
-*/
-
-// Todo: Add error recovery to everything
 static ast_node_t* parse_return_statement() {
     eat_token(T_RETURN);
     ast_node_t* node = init_ast_node();
@@ -381,15 +377,9 @@ static ast_node_t* parse_statement() {
         }
     }
     
-    // Attempt if statement
-
-
-    // Attempt loop statement
-
-    // Must be expr statement.
-
+    // Attempt assignment, or function call
+    // we can probably just go into pratt parsing here??
     if (expect_token(T_IDENTIFIER, false)) {
-        
         token_t id_token = eat_token(T_IDENTIFIER);
         if (expect_token(T_ASSIGN, false)) {
             node = init_ast_node();
@@ -575,6 +565,7 @@ void build_ast() {
 
 void teardown_ast() {
     // Traverse the AST and free it.
+    free_ast(Parser.ast_root);
     return;
 }
 

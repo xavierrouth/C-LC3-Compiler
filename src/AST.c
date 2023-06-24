@@ -44,11 +44,12 @@ static const char* ast_type_to_str(ast_node_enum type) {
         case A_COMPOUND_STMT: return "A_COMPOUND_STMT";
         case A_EXPR_STMT: return "A_EXPR_STMT";
         case A_PROGRAM: return "A_PROGRAM";
-        case A_VAR_DECL: return "A_VARL_DECL";
+        case A_VAR_DECL: return "A_VAR_DECL";
         case A_INTEGER_LITERAL: return "A_INTEGER_LITERAL";
         case A_VAR_EXPR: return "A_VAR_EXPR";
         case A_FUNCTION_DECL: return "A_FUNCTION_DECL";
         case A_RETURN_STMT: return "A_RETURN_STMT";
+        case A_FUNCTION_CALL: return "A_FUNCTION_CALL";
     }
     // Should probably clear the buffer lol.
     memset(print_buffer, 0, 64);
@@ -87,6 +88,13 @@ static ast_node_visitor* visitor_free_init() {
     return visitor;
 }
 
+static ast_node_visitor* visitor_check_init() {
+    ast_node_visitor* visitor = malloc(sizeof(ast_node_visitor));
+    visitor->visitor_type = CHECK_AST;
+    visitor->traversal_type = PREORDER;
+    return visitor;
+}
+
 // Call the correct function with the correct parameters
 static void visitor_call(ast_node_visitor* visitor, ast_node_t* node) {
     switch (visitor->visitor_type) {
@@ -96,6 +104,10 @@ static void visitor_call(ast_node_visitor* visitor, ast_node_t* node) {
         }
         case FREE_AST: {
             visitor->as.free_ast.func(node);
+            return;
+        }
+        case CHECK_AST: {
+            visitor->as.check_ast.results[visitor->as.check_ast.index++] = node->type;
             return;
         }
     }
@@ -133,6 +145,11 @@ void free_ast_node(ast_node_t* node) {
         }
         case A_COMPOUND_STMT: {
             ast_node_list_free(node->as.commpound_stmt.statements);
+            free(node);
+            return;
+        }
+        case A_FUNCTION_CALL: {
+            ast_node_list_free(node->as.func_call_expr.arguments);
             free(node);
             return;
         }
@@ -180,10 +197,12 @@ static void ast_traversal(ast_node_t* root, ast_node_visitor* visitor) {
             ast_traversal(root->as.binary_op.right, visitor);
             break;
         }
+        case A_FUNCTION_CALL: {
+            for (int i = 0; i < (root->as.func_call_expr.arguments.size); i++)
+                ast_traversal(root->as.func_call_expr.arguments.nodes[i], visitor);
+            break;
+        }
         case A_FUNCTION_DECL: {
-            // TODO: We need to somehow differentiate between the parameters and the body.
-            // in clang, there is a separate compound statement node,
-            // that might be helpful to have instead of the func_decl_body.
             for (int i = 0; i < (root->as.func_decl.parameters.size); i++)
                 ast_traversal(root->as.func_decl.parameters.nodes[i], visitor);
             ast_traversal(root->as.func_decl.body, visitor);
@@ -226,6 +245,15 @@ void print_ast(ast_node_t* root) {
 
 void free_ast(ast_node_t* root) {
     ast_node_visitor* visitor = visitor_free_init();
+    ast_traversal(root, visitor);
+    free(visitor);
+    return;
+}
+
+void check_ast(ast_node_t* root, ast_node_enum* results) {
+    ast_node_visitor* visitor = visitor_check_init();
+    visitor->as.check_ast.results = results;
+    visitor->as.check_ast.index = 0;
     ast_traversal(root, visitor);
     free(visitor);
     return;
@@ -301,6 +329,14 @@ void print_ast_node(ast_node_t* node, int indentation) {
                 "<node=%s, num_statements=\"%d\">\n", \
                 ast_type_to_str(node->type),
                 node->as.commpound_stmt.statements.size);
+            printf_indent(indentation*3, print_buffer);
+            return;
+        }
+        case A_FUNCTION_CALL: {
+            snprintf(print_buffer, 64,
+                "<node=%s, identifier=\"%s\">\n", \
+                ast_type_to_str(node->type),
+                node->as.func_call_expr.identifier);
             printf_indent(indentation*3, print_buffer);
             return;
         }
