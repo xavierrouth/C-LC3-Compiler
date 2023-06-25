@@ -1,6 +1,8 @@
 #include "AST.h"
 #include "AST_visitor.h"
 
+#include <stdio.h>
+
 // Use this same buffer for all the thingies
 static char print_buffer[64];
 
@@ -17,8 +19,11 @@ static const char* ast_type_to_str(ast_node_enum type) {
         case A_FUNCTION_DECL: return "A_FUNCTION_DECL";
         case A_RETURN_STMT: return "A_RETURN_STMT";
         case A_FUNCTION_CALL: return "A_FUNCTION_CALL";
+        case A_UNOP_EXPR: return "A_UNOP_EXPR";
     }
     // Should probably clear the buffer lol.
+    printf("This is stupid if you get here you need to implement \
+     ast_type_to_str for this node\n");
     memset(print_buffer, 0, 64);
     snprintf(print_buffer, 64, "%d", type);
     return print_buffer;
@@ -82,10 +87,6 @@ static void visitor_call(ast_node_visitor* visitor, ast_node_t* node) {
             visitor->as.check_ast.results[visitor->as.check_ast.index++] = node->type;
             return;
         }
-        case EMIT_AST: {
-            visitor->as.emit_ast.func(node, &(visitor->as.emit_ast.state));
-            return;
-        }
     }
 }
 
@@ -95,12 +96,7 @@ static void visitor_begin(ast_node_visitor* visitor, ast_node_t* node) {
             visitor->as.print_ast.indentation++;
             return;
         }
-        case EMIT_AST: {
-            if (node->type == A_PROGRAM) {
-                printf(".ORIG x3000\n");
-            }
-            return;
-        }
+        
     }
 }
 static void visitor_end(ast_node_visitor* visitor, ast_node_t* node) {
@@ -142,6 +138,7 @@ void free_ast_node(ast_node_t* node) {
         case A_RETURN_STMT:
         case A_INTEGER_LITERAL:
         case A_VAR_EXPR:
+        case A_UNOP_EXPR:
             free(node);
             return;
         default:
@@ -205,6 +202,10 @@ void ast_traversal(ast_node_t* root, ast_node_visitor* visitor) {
                 ast_traversal(root->as.commpound_stmt.statements.nodes[i], visitor);
             break;
         }
+        case A_UNOP_EXPR: {
+            ast_traversal(root->as.unary_op.child, visitor);
+            break;
+        }
         // Terminal nodes:
         case A_INTEGER_LITERAL:
         case A_VAR_EXPR:
@@ -247,80 +248,110 @@ void print_ast_node(ast_node_t* node, int indentation) {
     switch (node->type) {
         case A_PROGRAM: {
             snprintf(print_buffer, 64, 
-                "<node=%s>\n", \
-                ast_type_to_str(node->type));
+                "<node=%s, size=%d, index=%d>\n", \
+                ast_type_to_str(node->type),
+                node->size,
+                node->index);
             printf_indent(indentation*3, print_buffer);
             return;            
         }
         case A_VAR_DECL: {
             snprintf(print_buffer, 64,
-                "<node=%s, identifier=\"%s\", type=%s>\n", \
+                "<node=%s, identifier=\"%s\", type=%s, size=%d, index=%d>\n", \
                 ast_type_to_str(node->type), 
                 node->as.var_decl.identifier,
-                type_info_to_str(node->as.var_decl.type_info));   
+                type_info_to_str(node->as.var_decl.type_info),
+                node->size,
+                node->index);   
             printf_indent(indentation*3, print_buffer);
             return;            
         }
         case A_VAR_EXPR: {
            snprintf(print_buffer, 64,
-                "<node=%s, identifier=\"%s\">\n", \
+                "<node=%s, identifier=\"%s\">, size=%d, index=%d>\n", \
                 ast_type_to_str(node->type), 
-                node->as.var_ref_expr.identifier);   
+                node->as.var_ref_expr.identifier,
+                node->size,
+                node->index);   
             printf_indent(indentation*3, print_buffer);
             return;    
         }
         case A_INTEGER_LITERAL: {
             snprintf(print_buffer, 64,
-                "<node=%s, value=\"%d\">\n", \
+                "<node=%s, value=\"%d\", size=%d, index=%d>\n", \
                 ast_type_to_str(node->type), 
-                node->as.literal.value);
+                node->as.literal.value,
+                node->size,
+                node->index);
             printf_indent(indentation*3, print_buffer);
             return;            
         }
         case A_FUNCTION_DECL: {
             snprintf(print_buffer, 64,
-                "<node=%s, identifier=\"%s\">\n", \
+                "<node=%s, identifier=\"%s\", size=%d, index=%d>\n", \
                 ast_type_to_str(node->type), 
-                node->as.func_decl.identifier);
+                node->as.func_decl.identifier,
+                node->size,
+                node->index);
             printf_indent(indentation*3, print_buffer);
             return;            
         }
         case A_BINOP_EXPR: {
             snprintf(print_buffer, 64,
-                "<node=%s, op_type=\"%s\">\n", \
+                "<node=%s, op_type=\"%s\", size=%d, index=%d>\n", \
                 ast_type_to_str(node->type), 
-                ast_op_to_str(node->as.binary_op.type));
+                ast_op_to_str(node->as.binary_op.type),
+                node->size,
+                node->index);
+            printf_indent(indentation*3, print_buffer);
+            return;
+        }
+        case A_UNOP_EXPR: {
+            snprintf(print_buffer, 64,
+                "<node=%s, op_type=\"%s\", size=%d, index=%d>\n", \
+                ast_type_to_str(node->type), 
+                ast_op_to_str(node->as.unary_op.type),
+                node->size,
+                node->index);
             printf_indent(indentation*3, print_buffer);
             return;
         }
         case A_ASSIGN_EXPR: {
             snprintf(print_buffer, 64,
-                "<node=%s, identifier=\"%s\">\n", \
+                "<node=%s, identifier=\"%s\" size=%d, index=%d>\n", \
                 ast_type_to_str(node->type), 
-                node->as.assign_expr.identifier);
+                node->as.assign_expr.identifier,
+                node->size,
+                node->index);
             printf_indent(indentation*3, print_buffer);
             return;
         }
         case A_RETURN_STMT: {
             snprintf(print_buffer, 64,
-                "<node=%s>\n", \
-                ast_type_to_str(node->type));
+                "<node=%s, size=%d, index=%d>\n", \
+                ast_type_to_str(node->type),
+                node->size,
+                node->index);
             printf_indent(indentation*3, print_buffer);
             return;
         }
         case A_COMPOUND_STMT: {
             snprintf(print_buffer, 64,
-                "<node=%s, num_statements=\"%d\">\n", \
+                "<node=%s, num_statements=\"%d\", size=%d, index=%d>\n", \
                 ast_type_to_str(node->type),
-                node->as.commpound_stmt.statements.size);
+                node->as.commpound_stmt.statements.size,
+                node->size,
+                node->index);
             printf_indent(indentation*3, print_buffer);
             return;
         }
         case A_FUNCTION_CALL: {
             snprintf(print_buffer, 64,
-                "<node=%s, identifier=\"%s\">\n", \
+                "<node=%s, identifier=\"%s\", size=%d, index=%d>\n", \
                 ast_type_to_str(node->type),
-                node->as.func_call_expr.identifier);
+                node->as.func_call_expr.identifier,
+                node->size,
+                node->index);
             printf_indent(indentation*3, print_buffer);
             return;
         }

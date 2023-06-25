@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "parser.h"
+#include "AST_visitor.h"
 #include "type_table.h"
 
 #define VARIABLE_DECL true
@@ -17,6 +18,7 @@ static ast_node_t* parse_expression(int binding_power);
 
 static ast_node_t* parse_var_declaration(token_t id_token, type_info_t type_info);
 
+// Gets the next token from the token stream, including tokens that have been putback.
 static token_t next_token() 
 {
     token_t token;
@@ -26,6 +28,7 @@ static token_t next_token()
     return get_token();
 }
 
+// 32 is the number of op types we have.
 static int prefix_binding_power[32];
 static int infix_binding_power[32];
 
@@ -171,33 +174,32 @@ static type_info_t parse_declaration_specifiers() {
     return type_info;
 }
 
+
+// TODO: Do we want to parse negative literals, or just have a negate unary operator?
 // digits only
 int len_atoi(const char *buf, size_t len)        
 {
         int n=0;
         int negative = 1;
-
+        /**
         if (buf[0] == '-') {
             negative = -1;
             buf++;
         }
-
+        */
         while (len--)
                 n = n*10 + *buf++ - '0';
-
         return n * negative;
 }
 
 static ast_node_t* parse_int_literal() {
-    ast_node_t* node = init_ast_node();
+    ast_node_t* node = ast_node_init();
     // For now just handle single int literals LOL;
     token_t t = eat_token(T_INTLITERAL);
     node->type = A_INTEGER_LITERAL;
     node->as.literal.value = len_atoi(t.contents, t.contents_len);
     return node;
 }
-
-static ast_node_t* parse_primary_expression();
 
 static ast_op_enum token_type_to_op(token_enum type) {
     switch(type) {
@@ -210,14 +212,16 @@ static ast_op_enum token_type_to_op(token_enum type) {
 
 static ast_node_t* parse_function_call() {
     eat_token(T_LPAREN);
-    ast_node_t* node = init_ast_node();
+    ast_node_t* node = ast_node_init();
     node->type = A_FUNCTION_CALL;
     ast_node_t* argument;
     node->as.func_call_expr.arguments = ast_node_list_init();
-    
+    // Need to make sure NOT to eat the last , operator.
+    // This is difficult!
     while ((argument = parse_expression(0)) != NULL) {
         // How will this error???
-        ast_node_list_push(&(node->as.func_call_expr), argument);
+        ast_node_list_push(&(node->as.func_call_expr.arguments), argument);
+        node->size += argument->size;
         if (expect_token(T_COMMA, false)) {
             eat_token(T_COMMA);
             continue;
@@ -225,11 +229,13 @@ static ast_node_t* parse_function_call() {
         else {
             break;
         }
+        
     }
     eat_token(T_RPAREN);
     return node;
 }
 
+// function call can be turned into an operator, and symbol ref should be turend into its own node.
 static ast_node_t* parse_symbol_ref() {
     token_t id = eat_token(T_IDENTIFIER);
     ast_node_t* node;
@@ -239,7 +245,7 @@ static ast_node_t* parse_symbol_ref() {
     }
     // Otherwise its just a variable ref
     else {
-        node = init_ast_node();
+        node = ast_node_init();
         node->type = A_VAR_EXPR;
     }
     copy_token_to_id(id, node);
@@ -247,47 +253,56 @@ static ast_node_t* parse_symbol_ref() {
     
 }
 
+
+static bool is_prefix_op(ast_op_enum op) {
+    switch (op) {
+        case OP_ADD: 
+        case OP_SUB:
+        case OP_MUL:
+        case OP_NOT:
+        case OP_BITNOT:
+        case OP_DEC:
+        case OP_INC:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// Pratt Parsing: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 static ast_node_t* parse_expression(int binding_power) {
-    
-    // Do left token
     ast_node_t* left = NULL;
     ast_node_t* right = NULL;
     ast_node_t* node = NULL;
+
     int left_power = 0;
     int right_power = 0;
+
+    // Match the first token in the expression.
+    // It can either be identifier, literal, paren groupings,
+    token_t op_token = peek_token();
+    ast_op_enum op_type = token_type_to_op(op_token.kind);
+
     if (expect_token(T_INTLITERAL, false))
         left = parse_int_literal();
     else if (expect_token(T_IDENTIFIER, false)) {
         left = parse_symbol_ref();
     }
-    // Simplify prefix expressions:
     else if (expect_token(T_LPAREN, false)) {
         eat_token(T_LPAREN);
         left = parse_expression(0);
         eat_token(T_RPAREN);
     }
-    else if (expect_token(T_ADD, false)) {
-        eat_token(T_ADD);
-        left_power = prefix_binding_power[OP_ADD];
-        right_power = prefix_binding_power[OP_ADD] + 1;
-        right = parse_expression(right_power);
-        left = right; // Don't need a special node for this.
-    }
-    else if (expect_token(T_SUB, false)) {
-        eat_token(T_SUB);
-        left_power = prefix_binding_power[OP_SUB];
-        right_power = infix_binding_power[OP_SUB] + 1;
-        right = parse_expression(right_power);
-        // Multiply by -1
-        ast_node_t* negate_node = init_ast_node();
-        negate_node->type = A_INTEGER_LITERAL;
-        negate_node->as.literal.value = -1;
-
-        left = init_ast_node();
-        left->type = A_BINOP_EXPR;
-        left->as.binary_op.type = OP_MUL;
-        left->as.binary_op.left = negate_node;
-        left->as.binary_op.right = right;
+    else if (is_prefix_op(op_type)) {
+        // Prefix Expression:
+        eat_token(op_token.kind);
+        // Don't change left power.
+        left = ast_node_init();
+        right_power = prefix_binding_power[op_type];
+        left->type = A_UNOP_EXPR;
+        left->as.unary_op.order = PREFIX;
+        left->as.unary_op.type = op_type;
+        left->as.unary_op.child = parse_expression(right_power);
     }
 
     // Infix Expressions:
@@ -301,21 +316,14 @@ static ast_node_t* parse_expression(int binding_power) {
         else if(expect_token(T_RPAREN, false)) {
             break;
         }
+        // These actually can be in expressions, just need to know that if its an expression inside of a function call,
+        // need to differentiate between comma tokens as the operator and comma tokens as the separator. 
+        // TODO: Support comma operators
         else if(expect_token(T_COMMA, false)) {
             break;
         }
-        // For now just assume that the next token is binop.
-        /**
-        if (expect_token(T_ADD, false)){
-            //eat_token(T_ADD);
-            node = init_ast_node();
-            node->as.binary_op.type = OP_ADD;
-            node->as.binary_op.left = left; 
-            node->type = A_BINOP_EXPR; 
-        }
-        */
         
-        node = init_ast_node();
+        node = ast_node_init();
         node->as.binary_op.type = token_type_to_op(peek_token().kind);
         node->as.binary_op.left = left; 
         node->type = A_BINOP_EXPR;
@@ -331,6 +339,7 @@ static ast_node_t* parse_expression(int binding_power) {
 
         right = parse_expression(right_power);
         node->as.binary_op.right = right;
+        node->size += right->size;
         
         /** What do we do here?*/
         left = node;
@@ -341,9 +350,10 @@ static ast_node_t* parse_expression(int binding_power) {
 
 static ast_node_t* parse_return_statement() {
     eat_token(T_RETURN);
-    ast_node_t* node = init_ast_node();
+    ast_node_t* node = ast_node_init();
     node->type = A_RETURN_STMT;
     node->as.return_stmt.expression = parse_expression(0);
+    node->size = node->as.return_stmt.expression->size + 1;
     eat_token(T_SEMICOLON);
     return node;
 }
@@ -382,7 +392,7 @@ static ast_node_t* parse_statement() {
     if (expect_token(T_IDENTIFIER, false)) {
         token_t id_token = eat_token(T_IDENTIFIER);
         if (expect_token(T_ASSIGN, false)) {
-            node = init_ast_node();
+            node = ast_node_init();
             node->type = A_ASSIGN_EXPR;
             copy_token_to_id(id_token, node);
             eat_token(T_ASSIGN);
@@ -393,12 +403,10 @@ static ast_node_t* parse_statement() {
     }
 
     return NULL;
-
-
-
 }
+
 static ast_node_t* parse_var_declaration(token_t id_token, type_info_t type_info) {
-    ast_node_t* node = init_ast_node();
+    ast_node_t* node = ast_node_init();
     node->as.var_decl.initializer = NULL;
     node->as.var_decl.type_info = type_info;
     // Copies the token contents to the node identifier.
@@ -426,7 +434,7 @@ static ast_node_t* parse_var_declaration(token_t id_token, type_info_t type_info
 }
 
 static ast_node_t* parse_compound_statement() {
-    ast_node_t* node = init_ast_node();
+    ast_node_t* node = ast_node_init();
     node->type = A_COMPOUND_STMT;
    
     eat_token(T_LBRACE);
@@ -468,7 +476,7 @@ static ast_node_t* parse_declaration() {
     }
     // Do we need multiple cases if we use two differnet unions 
     // even though the memory layout is the same?
-    ast_node_t* node = init_ast_node();
+    ast_node_t* node = ast_node_init();
     node->as.var_decl.initializer = NULL;
     node->as.var_decl.type_info = type_info;
     // Copies the token contents to the node identifier.
@@ -508,7 +516,7 @@ static ast_node_t* parse_declaration() {
 
             // Expect a name
             id_token = eat_token(T_IDENTIFIER);
-            ast_node_t* parameter = init_ast_node();
+            ast_node_t* parameter = ast_node_init();
             parameter->type = A_VAR_DECL; //
             copy_token_to_id(id_token, parameter);
             
@@ -542,7 +550,7 @@ static ast_node_t* parse_declaration() {
 
 
 static ast_node_t* parse_translation_unit() {
-    ast_node_t* p = init_ast_node();
+    ast_node_t* p = ast_node_init();
     p->type = A_PROGRAM;
 
     // A bunch of external_declarations
@@ -553,6 +561,7 @@ static ast_node_t* parse_translation_unit() {
     while ((stmt = parse_declaration()) != NULL) {
         // Add the new stmt to our compound statment;
         ast_node_list_push(&(p->as.program.body), stmt);
+        p->size += stmt->size;
     } 
 
     return p;

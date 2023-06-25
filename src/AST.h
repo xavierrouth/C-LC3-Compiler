@@ -2,19 +2,30 @@
 #define AST_H
 
 #include "type_table.h"
+#include "token.h"
 
 #include <stdlib.h>
 
 #define POSTORDER 1
 #define PREORDER 0
 
+#define PREFIX 1
+#define POSTFIX 0
+
+// Both unary and binary operators.
 typedef enum AST_OP_ENUM {
+    OP_INVALID = -1,
     OP_ADD,
     OP_SUB,
     OP_MUL,
-    OP_NOT,
     OP_DIV,
     OP_MOD,
+    OP_NOT,
+    OP_BITNOT,
+    OP_INC,
+    OP_DEC,
+    OP_COMMA, // Wtf is the comma operator??
+    // Keep prefix operators down here:
 } ast_op_enum;
 
 typedef enum AST_NODE_ENUM {
@@ -46,6 +57,8 @@ typedef struct AST_NODE_LIST {
 // This way we can do scope correctly
 struct AST_NODE_STRUCT {
     ast_node_enum type;
+    int index; // Just some labeling.
+    int size; // Number of children including itself.
     union { 
         struct { // For int literal
             int value;
@@ -84,7 +97,8 @@ struct AST_NODE_STRUCT {
             ast_node_t* right;
         } binary_op;
         struct { // For Operations or assign statements
-            ast_op_enum type; 
+            ast_op_enum type;
+            bool order; 
             ast_node_t* child;
         } unary_op;
         struct { // For Operations or assign statements
@@ -143,7 +157,7 @@ struct AST_NODE_STRUCT {
 
 //TODO: Put the AST in the same place for all these function names, either beginning or end.
 // TODO: Allow common initializer to init an ast node either on the stack or on the heap.
-ast_node_t* init_ast_node();
+ast_node_t* ast_node_init();
 
 //ast_node_t* create_ast_node();
 
@@ -151,5 +165,7 @@ ast_node_list ast_node_list_init();
 
 void ast_node_list_push(ast_node_list* list, ast_node_t* node);
 
+// Takes a token type and returns the corresponding OP type.
+ast_op_enum token_to_op(token_enum type);
 
 #endif

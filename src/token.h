@@ -32,6 +32,9 @@ typedef enum TOKEN_KIND_ENUM {
     T_LOGAND,
     T_LOGOR,
 
+    T_INCREMENT,
+    T_DECREMENT,
+
     T_XMARK,
 
     T_NOTEQUALS, // '!='
@@ -139,6 +142,8 @@ static const char * token_type_to_str(token_enum type) {
         case T_EQUALITY: return "T_EQUALITY";
         case T_END: return "T_END";
         case T_VOID: return "T_VOID";
+        case T_DECREMENT: return "T_DECREMENT";
+        case T_INCREMENT: return "T_INCREMENT";
     }
 
     snprintf(buffer, 4, "%d", type);

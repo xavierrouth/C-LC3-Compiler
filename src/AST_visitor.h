@@ -9,7 +9,6 @@ typedef struct AST_NODE_VISITOR {
         PRINT_AST,
         FREE_AST,
         CHECK_AST,
-        EMIT_AST,
     } visitor_type;
     bool traversal_type; // POSTORDER or PREORDER
     union {
@@ -24,10 +23,6 @@ typedef struct AST_NODE_VISITOR {
             ast_node_enum* results;
             int index;
         } check_ast;
-        struct {
-            void (*func)(ast_node_t* node, codegen_state_t* const state); // pointer to allow modification.
-            codegen_state_t state;
-        } emit_ast;
     } as;
 } ast_node_visitor;
 

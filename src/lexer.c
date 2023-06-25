@@ -166,7 +166,7 @@ static token_enum char_to_token_type(char c) {
     return T_DEFAULT;
 }
 
-// Get the next token
+// Get the next token, you probably don't want to be calling this from the parser.
 token_t get_token() {
     token_t token;
     while (1 == 1) {
@@ -214,9 +214,15 @@ token_t get_token() {
                     return token;
                 }
             case '-':
-                if (isdigit(c = next())) {
-                    token.contents_len = scan_int(c);
-                    token.kind = T_INTLITERAL;
+                if ((c = next()) == '-') {
+                    token.contents_len = 2;
+                    token.kind = T_DECREMENT;
+                    return token;
+                }
+                // Don't need to do c = next, as it is already next from evaluating above case.
+                else if (c == '>') {
+                    token.contents_len = 2;
+                    token.kind = T_ARROW;
                     return token;
                 }
                 else {
