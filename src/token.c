@@ -7,11 +7,12 @@
 
 char* token_to_string(const token_t* t) {
     const char* type_str  = token_type_to_str(t->kind);
-    const char* template = "<type=%s, contents=\"%.*s\", position=(%d, %d)>\n";
+    const char* template = "<type=%s, contents=\"%s\", position=(%d, %d)>\n";
 
-    char* str = calloc(strlen(type_str) + strlen(template) + 8, sizeof(char));
+    // Max ID size is 64??
+    char* str = calloc(strlen(type_str) + strlen(template) + strlen(t->contents), sizeof(char));
     
-    sprintf(str, template, type_str, t->contents_len, t->contents, t->debug_info.row, t->debug_info.col);
+    sprintf(str, template, type_str, t->contents, t->debug_info.row, t->debug_info.col);
     return str;
 }
 

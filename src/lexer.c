@@ -4,6 +4,9 @@
 
 static lexer_t Lexer;
 
+char id_buffer[2048];
+int id_buffer_idx;
+
 void init_lexer(const char * src, long size) {
     Lexer.src = src;
     Lexer.index = 0;
@@ -11,6 +14,7 @@ void init_lexer(const char * src, long size) {
     Lexer.col = 1;
     Lexer.putback = 0;
     Lexer.size = size;
+    id_buffer_idx = 0;
     return;
 }
 
@@ -166,89 +170,102 @@ static token_enum char_to_token_type(char c) {
     return T_DEFAULT;
 }
 
+static void move_to_str_buffer(char* contents, int len) {
+    // Check errors::
+    strncpy(id_buffer + id_buffer_idx, contents, len);
+    id_buffer_idx += len + 1;
+    return;
+}
 // Get the next token, you probably don't want to be calling this from the parser.
 token_t get_token() {
     token_t token;
     while (1 == 1) {
         char c = skip();
         // Token is starting
-        token.contents = (Lexer.src + Lexer.index - 1);
+        char* contents = Lexer.src + Lexer.index - 1; //Maybe -1;
+        token.contents = &id_buffer[id_buffer_idx];
+        //&(id_buffer[id_buffer_idx]);
         token.debug_info.col = Lexer.col;
         token.debug_info.row = Lexer.row;
-        token.contents_len = 1;
         switch(c) {
             case '\0':
                 token.kind = T_END;
                 return token;
             case '!':
                 if ((c = next()) == '=') {
-                    token.contents_len = 2;
+                    move_to_str_buffer(contents, 2);
                     token.kind = T_NOTEQUALS;
                     return token;
                 }
                 else {
                     putback(c);
+                    move_to_str_buffer(contents, 1);
                     token.kind = T_XMARK;
                     return token;
                 }
             case '&':
                 if ((c = next()) == '&') {
-                    token.contents_len = 2;
+                    move_to_str_buffer(contents, 2);
                     token.kind = T_LOGAND;
                     return token;
                 }
                 else {
                     putback(c);
+                    move_to_str_buffer(contents, 1);
                     token.kind = T_MOD;
                     return token;
                 }
             case '=':
                 if ((c = next()) == '=') {
-                    token.contents_len = 2;
+                    move_to_str_buffer(contents, 2);
                     token.kind = T_EQUALITY;
                     return token;
                 }
                 else {
                     putback(c);
+                    move_to_str_buffer(contents, 1);
                     token.kind = T_ASSIGN;
                     return token;
                 }
             case '-':
                 if ((c = next()) == '-') {
-                    token.contents_len = 2;
+                    move_to_str_buffer(contents, 2);
                     token.kind = T_DECREMENT;
                     return token;
                 }
                 // Don't need to do c = next, as it is already next from evaluating above case.
                 else if (c == '>') {
-                    token.contents_len = 2;
+                    move_to_str_buffer(contents, 2);
                     token.kind = T_ARROW;
                     return token;
                 }
                 else {
                     putback(c);
+                    move_to_str_buffer(contents, 1);
                     token.kind = T_SUB;
                     return token;
                 }
             case '+':
                 if((c = next()) == '=') {
-                    token.contents_len = 2;
+                    move_to_str_buffer(contents, 2);
                     //token.kind = T_ADD_INC;
                     return token;
                 }
                 else {
                     putback(c);
+                    move_to_str_buffer(contents, 1);
                     token.kind = T_ADD;
                     return token;
                 }
             case '*':
                 if ((c = next()) == "=") {
-                    token.contents_len = 2;
+                    move_to_str_buffer(contents, 2);
                     //token.kind = T_MUL_INC;
                     return token;
                 }
                 else {
                     putback(c);
+                    move_to_str_buffer(contents, 1);
                     token.kind = T_MUL;
                     return token;
                 }
@@ -260,19 +277,17 @@ token_t get_token() {
             case '{':
             case '}':
                 token.kind = char_to_token_type(c);
+                move_to_str_buffer(contents, 1);
                 return token;
             default:
                 if (isdigit(c)) {
-                    token.contents_len = scan_int(c);
+                    move_to_str_buffer(contents, scan_int(c));
                     token.kind = T_INTLITERAL;
                     return token;
                 }
                 else if (isalpha(c) || '_' == c) {
-                    token.contents_len = scan_symbol(c);
-                    char buffer[16]; // Max length of symbol;
-                    strncpy(buffer, token.contents, token.contents_len);
-                    buffer[token.contents_len] = '\0';
-                    if ((token.kind = keyword(buffer)) != 0) {
+                    move_to_str_buffer(contents, scan_symbol(c));
+                    if ((token.kind = keyword(token.contents)) != 0) {
                         return token;
                     }
                     else {

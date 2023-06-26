@@ -3,8 +3,7 @@
 #include <string.h>
 
 #include "parser.h"
-#include "AST_visitor.h"
-#include "type_table.h"
+#include "analysis.h"
 
 #define VARIABLE_DECL true
 #define FUNCTION_DECL false
@@ -31,6 +30,7 @@ static token_t next_token()
 // 32 is the number of op types we have.
 static int prefix_binding_power[32];
 static int infix_binding_power[32];
+static int postfix_binding_power[32];
 
 static void init_infix_binding_power() {
     infix_binding_power[OP_ADD] = 5;
@@ -43,11 +43,18 @@ static void init_infix_binding_power() {
 static void init_prefix_binding_power() {
     prefix_binding_power[OP_ADD] = 10;
     prefix_binding_power[OP_SUB] = 10;
+    prefix_binding_power[OP_INC] = 15;
 }
 
+static void init_postfix_binding_power() {
+    postfix_binding_power[OP_INC] = 15;
+    postfix_binding_power[OP_DEC] = 15;
+    // Array access, function call, struct member access, ptr dereference
+}
 static void init_binding_power() {
     init_infix_binding_power();
     init_prefix_binding_power();
+    init_postfix_binding_power();
 }
 
 
@@ -106,22 +113,6 @@ static token_t eat_token(token_enum type)
     }
     return t;
 }
-
-static bool copy_token_to_id(token_t id_token, ast_node_t* node) {
-    if (id_token.contents_len > 16) {
-        printf("Error, identifier is too long.");
-        return false;
-    }
-    // Always but identifier first in struct and maybe it just works??
-    // Is this UB?
-    // Might have to have a switch (node->type) to assign it to union correctly.
-
-    memcpy(node->as.var_decl.identifier, id_token.contents, id_token.contents_len);
-    // Null terminate the contents string so we can print it easier later
-    node->as.var_decl.identifier[id_token.contents_len] = '\0';
-    return true;
-}
-
 
 // Give it a node 
 static type_info_t parse_declaration_specifiers() {
@@ -197,7 +188,7 @@ static ast_node_t* parse_int_literal() {
     // For now just handle single int literals LOL;
     token_t t = eat_token(T_INTLITERAL);
     node->type = A_INTEGER_LITERAL;
-    node->as.literal.value = len_atoi(t.contents, t.contents_len);
+    node->as.literal.value = atoi(t.contents); // len_atoi(t.contents, t.contents_len);
     return node;
 }
 
@@ -208,6 +199,7 @@ static ast_op_enum token_type_to_op(token_enum type) {
         case T_DIV: return OP_DIV;
         case T_MUL: return OP_MUL;
     }
+    return -1;
 }
 
 static ast_node_t* parse_function_call() {
@@ -215,12 +207,12 @@ static ast_node_t* parse_function_call() {
     ast_node_t* node = ast_node_init();
     node->type = A_FUNCTION_CALL;
     ast_node_t* argument;
-    node->as.func_call_expr.arguments = ast_node_list_init();
+    node->as.func_call_expr.arguments = ast_node_vector_init(4);
     // Need to make sure NOT to eat the last , operator.
     // This is difficult!
     while ((argument = parse_expression(0)) != NULL) {
         // How will this error???
-        ast_node_list_push(&(node->as.func_call_expr.arguments), argument);
+        ast_node_vector_push(&(node->as.func_call_expr.arguments), argument);
         node->size += argument->size;
         if (expect_token(T_COMMA, false)) {
             eat_token(T_COMMA);
@@ -242,13 +234,14 @@ static ast_node_t* parse_symbol_ref() {
     // Function Call
     if (expect_token(T_LPAREN, false)) {
         node = parse_function_call();
+        node->as.func_call_expr.identifier = id.contents;
     }
     // Otherwise its just a variable ref
     else {
         node = ast_node_init();
+        node->as.var_ref_expr.identifier = id.contents;
         node->type = A_VAR_EXPR;
     }
-    copy_token_to_id(id, node);
     return node;
     
 }
@@ -310,7 +303,6 @@ static ast_node_t* parse_expression(int binding_power) {
     while (true) {
         // These are things that definetly mark the end of an expression.
         if (expect_token(T_SEMICOLON, false)) {
-            //eat_token(T_SEMICOLON);
             break;
         }
         else if(expect_token(T_RPAREN, false)) {
@@ -322,6 +314,9 @@ static ast_node_t* parse_expression(int binding_power) {
         else if(expect_token(T_COMMA, false)) {
             break;
         }
+        
+        // At this point we expect a binary op or a postfix op
+        token_t op_token = peek_token();
         
         node = ast_node_init();
         node->as.binary_op.type = token_type_to_op(peek_token().kind);
@@ -394,7 +389,7 @@ static ast_node_t* parse_statement() {
         if (expect_token(T_ASSIGN, false)) {
             node = ast_node_init();
             node->type = A_ASSIGN_EXPR;
-            copy_token_to_id(id_token, node);
+            node->as.assign_expr.identifier = id_token.contents;
             eat_token(T_ASSIGN);
             node->as.assign_expr.right = parse_expression(0);
             eat_token(T_SEMICOLON);
@@ -410,13 +405,12 @@ static ast_node_t* parse_var_declaration(token_t id_token, type_info_t type_info
     node->as.var_decl.initializer = NULL;
     node->as.var_decl.type_info = type_info;
     // Copies the token contents to the node identifier.
-    copy_token_to_id(id_token, node);
-
     // TODO: Implement multiple variable initialization.
     
     if (expect_token(T_SEMICOLON, false)) {
         eat_token(T_SEMICOLON); // Don't eat it??/
         node->type = A_VAR_DECL;
+        node->as.var_decl.identifier = id_token.contents;
         node->as.var_decl.type_info = type_info;
         return node;
     }
@@ -424,6 +418,7 @@ static ast_node_t* parse_var_declaration(token_t id_token, type_info_t type_info
         eat_token(T_ASSIGN);
         // Parse variable initialization definition
         node->type = A_VAR_DECL;
+        node->as.var_decl.identifier = id_token.contents;
         node->as.var_decl.type_info = type_info;
         node->as.var_decl.initializer = parse_expression(0);
         eat_token(T_SEMICOLON);
@@ -439,12 +434,12 @@ static ast_node_t* parse_compound_statement() {
    
     eat_token(T_LBRACE);
     // Parse compound statement; // EATS THE BRACES
-    node->as.commpound_stmt.statements = ast_node_list_init();
+    node->as.commpound_stmt.statements = ast_node_vector_init(16);
     ast_node_t* stmt;
     // TOOD: Implement parse_stmt;
     // parse_stmt needs to choose between parse decleration and parse something else
     while ((stmt = parse_statement()) != NULL) {
-        ast_node_list_push(&(node->as.commpound_stmt.statements), stmt);
+        ast_node_vector_push(&(node->as.commpound_stmt.statements), stmt);
         if (peek_token().kind == T_RBRACE)
             break;
     }
@@ -480,7 +475,7 @@ static ast_node_t* parse_declaration() {
     node->as.var_decl.initializer = NULL;
     node->as.var_decl.type_info = type_info;
     // Copies the token contents to the node identifier.
-    copy_token_to_id(id_token, node);
+    node->as.var_decl.identifier = id_token.contents;
 
     // TODO: Parse multiple variable initialization.
     // Variable w/ no Initializer.
@@ -505,7 +500,7 @@ static ast_node_t* parse_declaration() {
         eat_token(T_LPAREN);
         // Parse function declaration
         node->type = A_FUNCTION_DECL;
-        node->as.func_decl.parameters = ast_node_list_init();
+        node->as.func_decl.parameters = ast_node_vector_init(6);
 
         // While the next token isn't a Rparen, parse parameters
         while (!expect_token(T_RPAREN, false)) {
@@ -518,10 +513,10 @@ static ast_node_t* parse_declaration() {
             id_token = eat_token(T_IDENTIFIER);
             ast_node_t* parameter = ast_node_init();
             parameter->type = A_VAR_DECL; //
-            copy_token_to_id(id_token, parameter);
+            parameter->as.var_decl.identifier = id_token.contents;
             
             parameter->as.var_decl.type_info = type_info;
-            ast_node_list_push(&(node->as.func_decl.parameters), parameter);
+            ast_node_vector_push(&(node->as.func_decl.parameters), parameter);
             // Expect a comma maybe
             // If there isn't a comma, then break.
             if (!expect_token(T_COMMA, false)) {}
@@ -555,12 +550,12 @@ static ast_node_t* parse_translation_unit() {
 
     // A bunch of external_declarations
     
-    p->as.program.body = ast_node_list_init();
+    p->as.program.body = ast_node_vector_init(16);
 
     ast_node_t* stmt;
     while ((stmt = parse_declaration()) != NULL) {
         // Add the new stmt to our compound statment;
-        ast_node_list_push(&(p->as.program.body), stmt);
+        ast_node_vector_push(&(p->as.program.body), stmt);
         p->size += stmt->size;
     } 
 

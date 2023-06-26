@@ -3,9 +3,18 @@
 
 void printf_indent(int indent, char * string);
 
-/**
-void printf_indent_tree(int indent, char * string, char c);
+#define CAT(a, b) a##b
+#define PASTE(a, b) CAT(a, b)
+#define JOIN(prefix, name) PASTE(prefix, PASTE(_, name))
+#define _JOIN(prefix, name) PASTE(_, PASTE(prefix, PASTE(_, name)))
 
-void pretty_printf_indent_tree(char* indent_string, char branch_char, char* string);
-*/
+#define SWAP(TYPE, a, b)                                                                                               \
+    {                                                                                                                  \
+        TYPE temp = *(a);                                                                                              \
+        *(a) = *(b);                                                                                                   \
+        *(b) = temp;                                                                                                   \
+    }
+
+#define LEN(a) (sizeof(a) / sizeof(*(a)))
+
 #endif 

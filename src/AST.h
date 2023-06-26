@@ -1,10 +1,11 @@
 #ifndef AST_H
 #define AST_H
 
-#include "type_table.h"
 #include "token.h"
+#include "types.h"
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define POSTORDER 1
 #define PREORDER 0
@@ -46,12 +47,20 @@ typedef enum AST_NODE_ENUM {
 
 typedef struct AST_NODE_STRUCT ast_node_t;
 
-typedef struct AST_NODE_LIST {
+#define T ast_node_t*
+#define NAME ast_node
+#include "vector.h"
+#undef T
+#undef NAME
+
+/*
+typedef struct ast_node_vector {
     ast_node_t** nodes;
     int size;
     int capacity;
     size_t elem_size; 
-} ast_node_list;
+} ast_node_vector;
+**/
 
 //TODO: Move all char identifier[16]s to the symbol ref type.
 // This way we can do scope correctly
@@ -64,11 +73,11 @@ struct AST_NODE_STRUCT {
             int value;
         } literal;
         struct {
-            char identifier[16];
-            ast_node_list arguments; // A bunch of expressions.
+            char* identifier;
+            ast_node_vector arguments; // A bunch of expressions.
         } func_call_expr;
         struct {
-            char identifier[16];
+            char* identifier;
             int scope;
             // We don't know the type until we compare with var decl later.
             // We can kkeep track of scope for now though.
@@ -77,7 +86,7 @@ struct AST_NODE_STRUCT {
         /**
         struct {
             ast_node_t* symbol;
-            ast_node_list parameters; 
+            ast_node_vector parameters; 
         } func_call;
         // TODO: Include symbol ref??
         struct { // A reference to an already defined symbol
@@ -88,7 +97,7 @@ struct AST_NODE_STRUCT {
         */
         struct {
             //ast_node_t* left; // This has to be an indeitifer
-            char identifier[16];
+            char* identifier;
             ast_node_t* right;
         } assign_expr; // Assign expr vs assign statement.
         struct { // For Operations or assign statements
@@ -108,7 +117,7 @@ struct AST_NODE_STRUCT {
             ast_node_t* third;
         } ternary_op;
         struct { // This is needed for scoping
-            ast_node_list statements;
+            ast_node_vector statements;
             int scope_id;
         } commpound_stmt;
         struct {
@@ -129,22 +138,22 @@ struct AST_NODE_STRUCT {
         } if_stmt;
         // Do we need to have a decl_stmt node 
         struct {
-            ast_node_list declarations;
+            ast_node_vector declarations;
         } decl_stmt;
         struct {
-            char identifier[16];
+            char* identifier;
             ast_node_t* initializer;
             type_info_t type_info;
         } var_decl;
         struct {
-            char identifier[16];
+            char* identifier;
             ast_node_t* body; // Compound statement
             type_info_t type_info;
             // TODO: Parameters
-            ast_node_list parameters; // This should be a bunch of variable decls.
+            ast_node_vector parameters; // This should be a bunch of variable decls.
         } func_decl; // Do the parameters need to have their own parm var decl node type?
         struct {
-            ast_node_list body;
+            ast_node_vector body;
             int main; // index into symbol table??
         } program;
     } as;
@@ -161,11 +170,48 @@ ast_node_t* ast_node_init();
 
 //ast_node_t* create_ast_node();
 
-ast_node_list ast_node_list_init();
 
-void ast_node_list_push(ast_node_list* list, ast_node_t* node);
 
 // Takes a token type and returns the corresponding OP type.
 ast_op_enum token_to_op(token_enum type);
+
+#include "codegen.h"
+
+typedef struct AST_NODE_VISITOR {
+    enum {
+        PRINT_AST,
+        FREE_AST,
+        CHECK_AST,
+    } visitor_type;
+    bool traversal_type; // POSTORDER or PREORDER
+    union {
+        struct {
+            void (*func)(ast_node_t* node); // free_ast
+        } free_ast;
+        struct {
+            void (*func)(ast_node_t* node, int indentation);
+            int indentation;
+        } print_ast;
+        struct {
+            ast_node_enum* results;
+            int index;
+        } check_ast;
+    } as;
+} ast_node_visitor;
+
+// Visitor options:
+
+void print_ast_node(ast_node_t* node, int indentation);
+
+void print_ast(ast_node_t* root);
+
+void free_ast_node(ast_node_t* node);
+
+void free_ast(ast_node_t* root);
+
+void ast_traversal(ast_node_t* root, ast_node_visitor* visitor);
+
+// No func for node as it is a one liner.
+void check_ast(ast_node_t* root, ast_node_enum* results);
 
 #endif

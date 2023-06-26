@@ -1,7 +1,6 @@
 #include <stdio.h>
 
 #include "codegen.h"
-#include "AST_visitor.h"
 #include "AST.h"
 
 // The whole visitor pattern is stupid.
@@ -36,15 +35,16 @@ static int emit_expression_node(ast_node_t* node) {
             case OP_ADD: {
                 int r1 = 0;
                 // we can only use one immediate though.
-                if (node->as.binary_op.left->type == A_INTEGER_LITERAL) {
+                if (node->as.binary_op.left->type == A_INTEGER_LITERAL && \
+                    node->as.binary_op.left->as.literal.value <= 15) {
                     // If the leaf is an int literal, we can just use an immediate.
                     r1 = emit_expression_node(node->as.binary_op.right);
-                    int val = node->as.binary_op.left->as.literal.value;
-                    // TOOD: Only if the immediate is small enough.
-                    printf("ADD R%d, R%d, #%d\n", r1, r1, val);
+                    printf("ADD R%d, R%d, #%d\n", r1, r1, node->as.binary_op.left->as.literal.value);
                     state.regfile[r1] = USED;
+                    
                 }
-                else if (node->as.binary_op.right->type == A_INTEGER_LITERAL) {
+                else if (node->as.binary_op.right->type == A_INTEGER_LITERAL && \
+                    node->as.binary_op.right->as.literal.value <= 15) {
                     r1 = emit_expression_node(node->as.binary_op.left);
                     int val = node->as.binary_op.right->as.literal.value;
                     printf("ADD R%d, R%d, #%d\n", r1, r1, val);
@@ -64,15 +64,6 @@ static int emit_expression_node(ast_node_t* node) {
                 int r1 = 0;
                 // we can only use one immediate though.
                 // If the left side is literal, oh well we can't do anything about that???
-                /**
-                if (node->as.binary_op.left->type == A_INTEGER_LITERAL) {
-                    // If the leaf is an int literal, we can just use an immediate.
-                    r1 = emit_expression_node(node->as.binary_op.right);
-                    int val = -1 * node->as.binary_op.left->as.literal.value;
-                    // TOOD: Only if the immediate is small enough.
-                    printf("ADD R%d, R%d, #%d\n", r1, r1, val);
-                    state.regfile[r1] = USED;
-                } */
                 if (node->as.binary_op.right->type == A_INTEGER_LITERAL) {
                     r1 = emit_expression_node(node->as.binary_op.left);
                     int val = -1 * node->as.binary_op.right->as.literal.value;
@@ -81,7 +72,7 @@ static int emit_expression_node(ast_node_t* node) {
                     state.regfile[r1] = USED;
                 }
                 else {
-                    // Otherwise the valis in a register somehow.
+                    // Otherwise the val is in a register somehow.
                     r1 = emit_expression_node(node->as.binary_op.left);
                     state.regfile[r1] = USED;
                     int r2 = emit_expression_node(node->as.binary_op.right);
@@ -111,9 +102,10 @@ static int emit_expression_node(ast_node_t* node) {
         }
     }
     else if (node->type == A_INTEGER_LITERAL) {
+        // We probably just want to place this in a constant pool and load from there.
         // Get a register to place this in
         int val = node->as.literal.value;
-        // TODO: check if val > 15;
+        // TODO: If val is > 15 then we have to materialize this int somehow.
         int r1 = get_empty_reg();
         printf("AND R%d, R%d, x0000\n", r1, r1);
         printf("ADD R%d, R%d, #%d\n", r1, r1, val);
@@ -133,7 +125,7 @@ void emit_ast_node(ast_node_t* node) {
         case A_PROGRAM: {
             printf(".ORIG x3000\n");
             for (int i = 0; i < (node->as.program.body.size); i++)
-                emit_ast_node(node->as.program.body.nodes[i]);
+                emit_ast_node(node->as.program.body.data[i]);
             printf("HALT\n");
             printf(".END\n");
             return;
@@ -163,7 +155,7 @@ void emit_ast_node(ast_node_t* node) {
         }
         case A_COMPOUND_STMT: {
             for (int i = 0; i < (node->as.commpound_stmt.statements.size); i++)
-                emit_ast_node(node->as.commpound_stmt.statements.nodes[i]);
+                emit_ast_node(node->as.commpound_stmt.statements.data[i]);
             break;
         }
         case A_FUNCTION_DECL: {

@@ -2,9 +2,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "AST.h"
-#include "AST_visitor.h"
 #include "codegen.h"
-
 #include <stdlib.h>
 #include <stdio.h>
 

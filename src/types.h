@@ -1,5 +1,5 @@
-#ifndef TYPE_TABLE_H
-#define TYPE_TABLE_H
+#ifndef TYPES_H
+#define TYPES_H
 
 #include <stdbool.h>
 
@@ -11,11 +11,9 @@ typedef enum TYPE_ENUM {
     NOTYPE,
 } type_enum;
 
-typedef struct VAR_INFO_STRUCT {
+typedef struct TYPE_INFO_STRUCT {
     type_enum type;
     bool is_pointer;
 } type_info_t;
-
-char* type_info_to_str(type_info_t type_info);
 
 #endif

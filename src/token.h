@@ -144,6 +144,8 @@ static const char * token_type_to_str(token_enum type) {
         case T_VOID: return "T_VOID";
         case T_DECREMENT: return "T_DECREMENT";
         case T_INCREMENT: return "T_INCREMENT";
+        default:
+            break;
     }
 
     snprintf(buffer, 4, "%d", type);
@@ -155,8 +157,7 @@ typedef struct TOKEN_STRUCT
 {
     token_enum kind;
     token_dbg_t debug_info;
-    const char* contents; 
-    int contents_len;
+    char* contents; 
 } token_t;
 
 void print_token(const token_t* token);
