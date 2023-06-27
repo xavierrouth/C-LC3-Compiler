@@ -1,7 +1,12 @@
 
-int main(int b, int a) {
-    int a = 2;
-    int b = a;
-    return 0;
+int pringle() {
+    return 3;
+}
+
+int main() {
+    int c;
+    int a;
+    int b;
+    return a + 3;
 }
 

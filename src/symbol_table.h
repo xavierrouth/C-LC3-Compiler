@@ -1,12 +1,14 @@
 #ifndef SYMBOL_TABLE_H
 #define SYMBOL_TABLE_H
 
+#include <string.h>
 #include "types.h"
 
 typedef struct SYMBOL_TABLE_ENTRY_STRUCT {
     char* identifier;
     type_info_t type_info;
-    int stack_offset; //Location on stacak frame as offset
+    int stack_offset; //Location on stack frame as offset
+    // These should all be negative as stack grows down.
 } symbol_table_entry;
 
 #define T symbol_table_entry
@@ -34,5 +36,7 @@ struct SYMBOL_TABLE_STRUCT {
 symbol_table_t* symbol_table_init(symbol_table_t* parent); 
 
 void symbol_table_free(symbol_table_t* table);
+
+symbol_table_entry* symbol_table_search(symbol_table_t* branch, char* identifier);
 
 #endif

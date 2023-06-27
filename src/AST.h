@@ -133,13 +133,14 @@ struct AST_NODE_STRUCT {
             char* identifier;
             ast_node_t* initializer;
             type_info_t type_info;
+            symbol_table_t* scope; // Points to a symbol table 
         } var_decl;
         struct {
             char* identifier;
             ast_node_t* body; // Compound statement
             type_info_t type_info;
-            // TODO: Parameters
             ast_node_vector parameters; // This should be a bunch of variable decls.
+            symbol_table_t* scope;
         } func_decl; // Do the parameters need to have their own parm var decl node type?
         struct {
             ast_node_vector body;

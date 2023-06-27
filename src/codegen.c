@@ -113,14 +113,22 @@ static int emit_expression_node(ast_node_t* node) {
         return r1;
     }
     else if (node->type == A_SYMBOL_REF) {
-        // Do later??
-        return 1;
+        // Do now
+        symbol_table_entry* sym_data = symbol_table_search(node->as.symbol_ref.scope, node->as.symbol_ref.identifier);
+        // Load 
+        int offset = sym_data->stack_offset;
+        int r1 = get_empty_reg();
+        printf("LDR R%d, R5, #%d\n", r1, offset);
+        return r1;
     }
     
     
 }
 
 void emit_ast_node(ast_node_t* node) {
+    if (node == NULL) {
+        return;
+    }
     switch (node->type) {
         case A_PROGRAM: {
             printf(".ORIG x3000\n");
@@ -136,6 +144,7 @@ void emit_ast_node(ast_node_t* node) {
             // using 
             // This requires a symbol ref. We can't do those yet.
             // This means store.
+            emit_ast_node(node->as.assign_expr.right);
             printf("");
             return;
         }
@@ -159,9 +168,19 @@ void emit_ast_node(ast_node_t* node) {
             break;
         }
         case A_FUNCTION_DECL: {
+            state.regfile[0] = UNUSED;
+            state.regfile[1] = UNUSED;
+            state.regfile[2] = UNUSED;
+            state.regfile[3] = UNUSED;
+            printf("; Begin function %s:\n", node->as.func_decl.identifier);
+            printf("%s\n", node->as.func_decl.identifier);
             emit_ast_node(node->as.func_decl.body);
+            printf("; End function %s\n", node->as.func_decl.identifier);
             break;
         }
+        case A_VAR_DECL:
+            emit_ast_node(node->as.var_decl.initializer);
+            return;
         case A_BINOP_EXPR: 
         case A_INTEGER_LITERAL: 
         case A_SYMBOL_REF: 

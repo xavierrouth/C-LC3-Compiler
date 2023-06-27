@@ -5,9 +5,6 @@
 
 static symbol_table_t _global_table;
 static symbol_table_t* global_table;
-
-// Map index to symbol table
-symbol_table_t* map_idx_to_scope[64]; // 64 scopes allowed  
  
 static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
     //visitor_begin(visitor, root);
@@ -22,11 +19,15 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             break;
         }
         case A_VAR_DECL: {
+            // Create the symbol table entry:
             symbol_table_entry var_decl = {0};
-            // TODO: Make sure this symbol doesn't already exist.
-                var_decl.identifier = root->as.var_decl.identifier;
-                var_decl.stack_offset = scope->offset++;
-                var_decl.type_info = root->as.var_decl.type_info;
+            // TODO: Search only current scope to make sure this symbol doesn't already exist.
+            var_decl.identifier = root->as.var_decl.identifier;
+            var_decl.stack_offset = scope->offset--;
+            var_decl.type_info = root->as.var_decl.type_info;
+            
+            // Set the scope in the node to the correct symbol table.
+            root->as.var_decl.scope = scope;
             symbol_vector_push(&(scope->symbols), var_decl);
             analyze_node(root->as.var_decl.initializer, scope);
             break;
@@ -42,19 +43,28 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             break;
         }
         case A_FUNCTION_DECL: {
-            // The function symbol should go in the main table
-            symbol_table_t* func_scope = symbol_table_init(scope);
+            // Make a symbol to go in our current symbol table
             symbol_table_entry func_symbol = {0};
-            func_scope->name = root->as.func_decl.identifier;
             func_symbol.identifier = root->as.func_decl.identifier;
-            func_symbol.stack_offset = scope->offset++;
+            func_symbol.stack_offset = scope->offset--; // Subtract the size of the data type / struct
             func_symbol.type_info = root->as.func_decl.type_info;
+            symbol_vector_push(&(scope->symbols), func_symbol);
+
+            // Make a scope for the function's parameters:
+            symbol_table_t* func_scope = symbol_table_init(scope);
+            func_scope->name = root->as.func_decl.identifier;
+
+            // Tell the node the scope of this declaration.
+            root->as.func_decl.scope = scope;
+
+            // Add the scope
             symbol_table_vector_push(&(scope->children), func_scope);
-            //strncpy(func_symbol.identifier, root->as.func_decl.identifier);
             for (int i = 0; i < (root->as.func_decl.parameters.size); i++) {
                 analyze_node(root->as.func_decl.parameters.data[i], func_scope);
             }
-                
+            
+            // Analyze the compound stmt.
+            // This will create another new scope, that is a child of the parameters scope.
             analyze_node(root->as.func_decl.body, func_scope);
             break;
         }
@@ -67,6 +77,9 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             break;
         }
         case A_COMPOUND_STMT: {
+            // Create another scope
+            // TODO: C scoping means this really should make anew scope, but not implemented.
+            // This is dumb, compound stmt shouldn't create a new scope for now.
             for (int i = 0; i < (root->as.commpound_stmt.statements.size); i++)
                 analyze_node(root->as.commpound_stmt.statements.data[i], scope);
             break;
@@ -77,7 +90,11 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
         }
         // Terminal nodes:
         case A_INTEGER_LITERAL:
+            break;
         case A_SYMBOL_REF:
+            // TODO: Search the current scope to make sure this variable exists.
+            // We could do this now or during code gen.
+            root->as.symbol_ref.scope = scope;
             break;
         default:
             printf("Error: Traversal Unimplemented for this Node type");
@@ -88,6 +105,7 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
 void analysis(ast_node_t* root) {
     global_table = &(_global_table);
     global_table->name = "global table";
+    global_table->offset = 0;
 
     analyze_node(root, global_table);
 
