@@ -207,12 +207,12 @@ static ast_node_t* parse_function_call() {
     ast_node_t* node = ast_node_init();
     node->type = A_FUNCTION_CALL;
     ast_node_t* argument;
-    node->as.func_call_expr.arguments = ast_node_vector_init(4);
+    node->as.func_call.arguments = ast_node_vector_init(4);
     // Need to make sure NOT to eat the last , operator.
     // This is difficult!
     while ((argument = parse_expression(0)) != NULL) {
         // How will this error???
-        ast_node_vector_push(&(node->as.func_call_expr.arguments), argument);
+        ast_node_vector_push(&(node->as.func_call.arguments), argument);
         node->size += argument->size;
         if (expect_token(T_COMMA, false)) {
             eat_token(T_COMMA);
@@ -230,20 +230,18 @@ static ast_node_t* parse_function_call() {
 // function call can be turned into an operator, and symbol ref should be turend into its own node.
 static ast_node_t* parse_symbol_ref() {
     token_t id = eat_token(T_IDENTIFIER);
-    ast_node_t* node;
+    ast_node_t* symbol = ast_node_init();
+    symbol->as.symbol_ref.identifier = id.contents;
+    symbol->type = A_SYMBOL_REF;
+
     // Function Call
     if (expect_token(T_LPAREN, false)) {
-        node = parse_function_call();
-        node->as.func_call_expr.identifier = id.contents;
+        ast_node_t* func = parse_function_call(); // Eats parens.
+        func->as.func_call.symbol_ref = symbol;
+        return func;
     }
-    // Otherwise its just a variable ref
-    else {
-        node = ast_node_init();
-        node->as.var_ref_expr.identifier = id.contents;
-        node->type = A_VAR_EXPR;
-    }
-    return node;
-    
+    // Just a symbol ref
+    return symbol;
 }
 
 
@@ -519,7 +517,7 @@ static ast_node_t* parse_declaration() {
             ast_node_vector_push(&(node->as.func_decl.parameters), parameter);
             // Expect a comma maybe
             // If there isn't a comma, then break.
-            if (!expect_token(T_COMMA, false)) {}
+            if (!expect_token(T_COMMA, false))
                 break;
             eat_token(T_COMMA);
         } // Done parsing parameters.

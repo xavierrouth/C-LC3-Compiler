@@ -3,6 +3,8 @@
 #include "parser.h"
 #include "AST.h"
 #include "codegen.h"
+#include "analysis.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -67,6 +69,7 @@ int main(int argc, char **argv) {
     */
 
     print_ast(root);
+    analysis(root);
     printf("Beginning Code gen:\n");
     emit_ast(root);
     free_ast(root);

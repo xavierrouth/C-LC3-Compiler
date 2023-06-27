@@ -258,7 +258,7 @@ token_t get_token() {
                     return token;
                 }
             case '*':
-                if ((c = next()) == "=") {
+                if ((c = next()) == '=') {
                     move_to_str_buffer(contents, 2);
                     //token.kind = T_MUL_INC;
                     return token;

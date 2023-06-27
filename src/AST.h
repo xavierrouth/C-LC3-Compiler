@@ -3,6 +3,7 @@
 
 #include "token.h"
 #include "types.h"
+#include "symbol_table.h"
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -37,7 +38,7 @@ typedef enum AST_NODE_ENUM {
     A_FUNCTION_DECL,
     A_COMPOUND_STMT,
     A_EXPR_STMT,
-    A_VAR_EXPR,
+    A_SYMBOL_REF,
     A_BINOP_EXPR,
     A_UNOP_EXPR,
     A_ASSIGN_EXPR,
@@ -72,29 +73,17 @@ struct AST_NODE_STRUCT {
         struct { // For int literal
             int value;
         } literal;
-        struct {
-            char* identifier;
-            ast_node_vector arguments; // A bunch of expressions.
-        } func_call_expr;
-        struct {
-            char* identifier;
-            int scope;
-            // We don't know the type until we compare with var decl later.
-            // We can kkeep track of scope for now though.
-        } var_ref_expr;
         // Expressions:
-        /**
         struct {
-            ast_node_t* symbol;
-            ast_node_vector parameters; 
+            ast_node_t* symbol_ref;
+            ast_node_vector arguments; 
         } func_call;
         // TODO: Include symbol ref??
         struct { // A reference to an already defined symbol
-            int id;
-            int scope;
+            symbol_table_t* scope; // This needs to be populated during semantic analysis.
             type_enum type;
+            char* identifier;
         } symbol_ref;
-        */
         struct {
             //ast_node_t* left; // This has to be an indeitifer
             char* identifier;
@@ -107,8 +96,8 @@ struct AST_NODE_STRUCT {
         } binary_op;
         struct { // For Operations or assign statements
             ast_op_enum type;
-            bool order; 
             ast_node_t* child;
+            bool order; // post or pre
         } unary_op;
         struct { // For Operations or assign statements
             ast_op_enum type; 

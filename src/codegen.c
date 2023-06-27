@@ -112,7 +112,7 @@ static int emit_expression_node(ast_node_t* node) {
         state.regfile[r1] = USED;
         return r1;
     }
-    else if (node->type == A_VAR_EXPR) {
+    else if (node->type == A_SYMBOL_REF) {
         // Do later??
         return 1;
     }
@@ -164,7 +164,7 @@ void emit_ast_node(ast_node_t* node) {
         }
         case A_BINOP_EXPR: 
         case A_INTEGER_LITERAL: 
-        case A_VAR_EXPR: 
+        case A_SYMBOL_REF: 
             emit_expression_node(node);
             return;
         

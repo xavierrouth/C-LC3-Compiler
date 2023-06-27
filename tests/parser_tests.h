@@ -28,7 +28,7 @@ p_simple_1(const MunitParameter params[], void* data) {
         A_VAR_DECL,
         A_INTEGER_LITERAL,
         A_VAR_DECL,
-        A_VAR_EXPR,
+        A_SYMBOL_REF,
         A_VAR_DECL,
     };
 
