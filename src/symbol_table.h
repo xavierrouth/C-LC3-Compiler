@@ -2,12 +2,14 @@
 #define SYMBOL_TABLE_H
 
 #include <string.h>
+#include <stdbool.h>
 #include "types.h"
 
 typedef struct SYMBOL_TABLE_ENTRY_STRUCT {
     char* identifier;
     type_info_t type_info;
     int stack_offset; //Location on stack frame as offset
+    bool parameter;
     // These should all be negative as stack grows down.
 } symbol_table_entry;
 

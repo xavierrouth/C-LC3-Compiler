@@ -242,6 +242,7 @@ void ast_traversal(ast_node_t* root, ast_node_visitor* visitor) {
         }
         case A_ASSIGN_EXPR: {
             ast_traversal(root->as.assign_expr.right, visitor);
+            ast_traversal(root->as.assign_expr.left, visitor);
             break;
         }
         case A_RETURN_STMT: {
@@ -369,9 +370,8 @@ void print_ast_node(ast_node_t* node, int indentation) {
         }
         case A_ASSIGN_EXPR: {
             snprintf(print_buffer, 128,
-                "<node=%s, identifier=\"%s\" size=%d, index=%d>\n", \
+                "<node=%s, size=%d, index=%d>\n", \
                 ast_type_to_str(node->type), 
-                node->as.assign_expr.identifier,
                 node->size,
                 node->index);
             printf_indent(indentation*3, print_buffer);

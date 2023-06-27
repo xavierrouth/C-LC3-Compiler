@@ -1,12 +1,6 @@
-
-int pringle() {
-    return 3;
-}
-
 int main() {
-    int c;
-    int a;
-    int b;
-    return a + 3;
+    int a = 0;
+    a = 3 + a;
+    return a + 5;
 }
 

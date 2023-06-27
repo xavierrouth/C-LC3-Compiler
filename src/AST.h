@@ -85,8 +85,7 @@ struct AST_NODE_STRUCT {
             char* identifier;
         } symbol_ref;
         struct {
-            //ast_node_t* left; // This has to be an indeitifer
-            char* identifier;
+            ast_node_t* left; 
             ast_node_t* right;
         } assign_expr; // Assign expr vs assign statement.
         struct { // For Operations or assign statements
@@ -133,6 +132,7 @@ struct AST_NODE_STRUCT {
             char* identifier;
             ast_node_t* initializer;
             type_info_t type_info;
+            bool is_parameter;
             symbol_table_t* scope; // Points to a symbol table 
         } var_decl;
         struct {

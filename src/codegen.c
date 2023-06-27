@@ -108,7 +108,9 @@ static int emit_expression_node(ast_node_t* node) {
         // TODO: If val is > 15 then we have to materialize this int somehow.
         int r1 = get_empty_reg();
         printf("AND R%d, R%d, x0000\n", r1, r1);
-        printf("ADD R%d, R%d, #%d\n", r1, r1, val);
+        if (val != 0) {
+            printf("ADD R%d, R%d, #%d\n", r1, r1, val);
+        }
         state.regfile[r1] = USED;
         return r1;
     }
@@ -118,7 +120,7 @@ static int emit_expression_node(ast_node_t* node) {
         // Load 
         int offset = sym_data->stack_offset;
         int r1 = get_empty_reg();
-        printf("LDR R%d, R5, #%d\n", r1, offset);
+        printf("LDR R%d, R5, #%d ; Load local variable \"%s\"\n", r1, offset, sym_data->identifier);
         return r1;
     }
     
@@ -132,9 +134,13 @@ void emit_ast_node(ast_node_t* node) {
     switch (node->type) {
         case A_PROGRAM: {
             printf(".ORIG x3000\n");
+            
+            printf("LD R6, USER_STACK\n"); // start the stack pointer at the end of user space
+            printf("JSR main\n");
             for (int i = 0; i < (node->as.program.body.size); i++)
                 emit_ast_node(node->as.program.body.data[i]);
             printf("HALT\n");
+            printf("USER_STACK .FILL xFDFF\n");
             printf(".END\n");
             return;
         }
@@ -144,8 +150,11 @@ void emit_ast_node(ast_node_t* node) {
             // using 
             // This requires a symbol ref. We can't do those yet.
             // This means store.
-            emit_ast_node(node->as.assign_expr.right);
-            printf("");
+            int reg = emit_expression_node(node->as.assign_expr.right);
+            symbol_table_entry* sym_data = symbol_table_search(node->as.assign_expr.left->as.symbol_ref.scope, node->as.assign_expr.left->as.symbol_ref.identifier);
+            
+            printf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, sym_data->stack_offset);
+            state.regfile[reg] = UNUSED;
             return;
         }
         // Somehow we need to pattern match these two into the same instruction.
@@ -156,10 +165,10 @@ void emit_ast_node(ast_node_t* node) {
             // Check if its already in R0???
             // No optimizations yet.
             int reg = emit_expression_node(node->as.return_stmt.expression);
-            if (reg != 0) {
-                printf("ADD R0, R%d, x0000\n", reg);
-            }
-            
+            // Write it into return value slot, which 
+            printf("\n");
+            printf("STR R%d, R5, #3 ; Write return value, always R5 + 3\n", reg);
+            printf("\n");
             return;
         }
         case A_COMPOUND_STMT: {
@@ -172,15 +181,67 @@ void emit_ast_node(ast_node_t* node) {
             state.regfile[1] = UNUSED;
             state.regfile[2] = UNUSED;
             state.regfile[3] = UNUSED;
+            // Callee save registers:
+            printf("\n");
             printf("; Begin function %s:\n", node->as.func_decl.identifier);
             printf("%s\n", node->as.func_decl.identifier);
+            printf("; Callee Setup: \n");
+            printf("ADD R6, R6, #-1 ; Allocate spot for the return value\n");
+            printf("\n");
+            printf("ADD R6, R6, #-1 ; \n");
+            printf("STR R7, R6, #0  ; Push R7 (Return Address)\n");
+            printf("\n");
+            printf("ADD R6, R6, #-1 ; \n");
+            printf("STR R5, R6, #0  ; Push R5 (Caller's Frame Pointer)\n");
+            printf("\n");
+            printf("ADD R5, R6, #-1 ; Set frame pointer for function\n");
+            printf("\n");
+            printf("; Perform work for function: \n");
             emit_ast_node(node->as.func_decl.body);
+            printf("; Callee Teardown: \n");
+            printf("ADD R6, R5, #1 ; Pop local variables\n");
+            printf("\n");
+            printf("LDR R5, R6, #0 ; Pop the frame pointer\n");
+            printf("ADD R6, R6, #1\n");
+            printf("\n");
+            printf("LDR R7, R6, #0 ; Pop the return address\n");
+            printf("ADD R6, R6, #1\n");
+            printf("RET\n");
             printf("; End function %s\n", node->as.func_decl.identifier);
+            printf("\n");
             break;
         }
         case A_VAR_DECL:
-            emit_ast_node(node->as.var_decl.initializer);
-            return;
+            // Is global scope
+            // We will have a global data section, instead of placing them in the same order
+            // as they are declared in the program.
+            // Global data section is at address x5000
+            // Global variable
+            if (node->as.var_decl.scope->parent == NULL) {
+                printf("%s .FILL x0000\n", node->as.var_decl.identifier);
+                // No initializer.
+                return;
+            }
+            
+            
+            // Local Variable, but not a parameter.
+            // Check current scope:
+            if (!node->as.var_decl.is_parameter) {
+                // allocate space for local variable
+                printf("ADD R6, R6, #-1 ; Allocate space for \"%s\"\n", node->as.var_decl.identifier);
+                if (node->as.var_decl.initializer != NULL) {
+                    // TOOD: Assignment nodes should not really be separate, there should be an assignemnt expression.
+                    // But for now, we can kepe initialization separate, as for static ints it works different I suppose
+                    // Load a reg with the initializer value
+                    int reg = emit_expression_node(node->as.var_decl.initializer);
+                    symbol_table_entry* sym_data = symbol_table_search(node->as.var_decl.scope, node->as.var_decl.identifier);
+                    
+                    printf("STR R%d, R5, #%d ; Initialize variable\n\n", reg, sym_data->stack_offset);
+                    state.regfile[reg] = UNUSED;
+                }
+                return;
+            }
+           
         case A_BINOP_EXPR: 
         case A_INTEGER_LITERAL: 
         case A_SYMBOL_REF: 

@@ -25,6 +25,7 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             var_decl.identifier = root->as.var_decl.identifier;
             var_decl.stack_offset = scope->offset--;
             var_decl.type_info = root->as.var_decl.type_info;
+            var_decl.parameter = root->as.var_decl.is_parameter;
             
             // Set the scope in the node to the correct symbol table.
             root->as.var_decl.scope = scope;
@@ -70,6 +71,7 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
         }
         case A_ASSIGN_EXPR: {
             analyze_node(root->as.assign_expr.right, scope);
+            analyze_node(root->as.assign_expr.left, scope);
             break;
         }
         case A_RETURN_STMT: {
@@ -93,7 +95,6 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             break;
         case A_SYMBOL_REF:
             // TODO: Search the current scope to make sure this variable exists.
-            // We could do this now or during code gen.
             root->as.symbol_ref.scope = scope;
             break;
         default:
@@ -103,12 +104,10 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
 }
 
 void analysis(ast_node_t* root) {
-    global_table = &(_global_table);
+    global_table = symbol_table_init(NULL);
     global_table->name = "global table";
-    global_table->offset = 0;
-
+    
     analyze_node(root, global_table);
-
 
     return;
 }

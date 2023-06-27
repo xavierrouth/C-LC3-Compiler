@@ -387,7 +387,9 @@ static ast_node_t* parse_statement() {
         if (expect_token(T_ASSIGN, false)) {
             node = ast_node_init();
             node->type = A_ASSIGN_EXPR;
-            node->as.assign_expr.identifier = id_token.contents;
+            node->as.assign_expr.left = ast_node_init();
+            node->as.assign_expr.left->type = A_SYMBOL_REF;
+            node->as.assign_expr.left->as.symbol_ref.identifier = id_token.contents;
             eat_token(T_ASSIGN);
             node->as.assign_expr.right = parse_expression(0);
             eat_token(T_SEMICOLON);
@@ -410,12 +412,14 @@ static ast_node_t* parse_var_declaration(token_t id_token, type_info_t type_info
         node->type = A_VAR_DECL;
         node->as.var_decl.identifier = id_token.contents;
         node->as.var_decl.type_info = type_info;
+        node->as.var_decl.is_parameter = false;
         return node;
     }
     else if (expect_token(T_ASSIGN, false)) {
         eat_token(T_ASSIGN);
         // Parse variable initialization definition
         node->type = A_VAR_DECL;
+        node->as.var_decl.is_parameter = false;
         node->as.var_decl.identifier = id_token.contents;
         node->as.var_decl.type_info = type_info;
         node->as.var_decl.initializer = parse_expression(0);
@@ -512,6 +516,7 @@ static ast_node_t* parse_declaration() {
             ast_node_t* parameter = ast_node_init();
             parameter->type = A_VAR_DECL; //
             parameter->as.var_decl.identifier = id_token.contents;
+            parameter->as.var_decl.is_parameter = true;
             
             parameter->as.var_decl.type_info = type_info;
             ast_node_vector_push(&(node->as.func_decl.parameters), parameter);
