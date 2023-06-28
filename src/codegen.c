@@ -3,6 +3,8 @@
 #include "codegen.h"
 #include "AST.h"
 
+#include <stdarg.h>
+
 // The whole visitor pattern is stupid.
 
 // Register states
@@ -11,6 +13,25 @@
 
 static codegen_state_t state;
 
+static FILE* File;
+
+void set_out_file(char* path) {
+    File = fopen(path, "w");
+    return;
+}
+
+void close_out_file() {
+    fclose(File);
+}
+
+static void emitf(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(File, fmt, args);
+    va_end(args);
+    return;
+}
+
 // Just know for now that regfile is 8 registesr???/
 static int get_empty_reg() {
     for (int i = 0; i < 8; i++) {
@@ -18,7 +39,7 @@ static int get_empty_reg() {
             return i;
         }
     }
-    printf("No empty registers, please write a shorter expression.\n");
+    emitf("No empty registers, please write a shorter expression.\n");
     return -1; // Will j break I guess.
 }
 
@@ -39,7 +60,7 @@ static int emit_expression_node(ast_node_t* node) {
                     node->as.binary_op.left->as.literal.value <= 15) {
                     // If the leaf is an int literal, we can just use an immediate.
                     r1 = emit_expression_node(node->as.binary_op.right);
-                    printf("ADD R%d, R%d, #%d\n", r1, r1, node->as.binary_op.left->as.literal.value);
+                    emitf("ADD R%d, R%d, #%d\n", r1, r1, node->as.binary_op.left->as.literal.value);
                     state.regfile[r1] = USED;
                     
                 }
@@ -47,7 +68,7 @@ static int emit_expression_node(ast_node_t* node) {
                     node->as.binary_op.right->as.literal.value <= 15) {
                     r1 = emit_expression_node(node->as.binary_op.left);
                     int val = node->as.binary_op.right->as.literal.value;
-                    printf("ADD R%d, R%d, #%d\n", r1, r1, val);
+                    emitf("ADD R%d, R%d, #%d\n", r1, r1, val);
                     // TOOD: Only if the immediate is small enough
                     state.regfile[r1] = USED;
                 }
@@ -56,7 +77,7 @@ static int emit_expression_node(ast_node_t* node) {
                     state.regfile[r1] = USED;
                     int r2 = emit_expression_node(node->as.binary_op.right);
                     state.regfile[r2] = UNUSED;
-                    printf("ADD R%d, R%d, R%d\n", r1, r1, r2);
+                    emitf("ADD R%d, R%d, R%d\n", r1, r1, r2);
                 }
             return r1;
             }
@@ -67,7 +88,7 @@ static int emit_expression_node(ast_node_t* node) {
                 if (node->as.binary_op.right->type == A_INTEGER_LITERAL) {
                     r1 = emit_expression_node(node->as.binary_op.left);
                     int val = -1 * node->as.binary_op.right->as.literal.value;
-                    printf("ADD R%d, R%d, #%d\n", r1, r1, val);
+                    emitf("ADD R%d, R%d, #%d\n", r1, r1, val);
                     // TOOD: Only if the immediate is small enough
                     state.regfile[r1] = USED;
                 }
@@ -76,9 +97,9 @@ static int emit_expression_node(ast_node_t* node) {
                     r1 = emit_expression_node(node->as.binary_op.left);
                     state.regfile[r1] = USED;
                     int r2 = emit_expression_node(node->as.binary_op.right);
-                    printf("NOT R%d, R%d\n", r2, r2);
-                    printf("ADD R%d, R%d, #1\n", r2, r2);
-                    printf("ADD R%d, R%d, R%d\n", r1, r1, r2);
+                    emitf("NOT R%d, R%d\n", r2, r2);
+                    emitf("ADD R%d, R%d, #1\n", r2, r2);
+                    emitf("ADD R%d, R%d, R%d\n", r1, r1, r2);
                     state.regfile[r2] = UNUSED;
                 }
             return r1;
@@ -95,8 +116,8 @@ static int emit_expression_node(ast_node_t* node) {
                 // Get the register that the child expression is in.
                 int r = emit_expression_node(node->as.unary_op.child);
                 // Negate it.
-                printf("NOT R%d, R%d\n", r, r);
-                printf("ADD R%d, R%d, #1\n", r, r);
+                emitf("NOT R%d, R%d\n", r, r);
+                emitf("ADD R%d, R%d, #1\n", r, r);
                 return r; // Its stored in the same register still.
             }
         }
@@ -108,16 +129,16 @@ static int emit_expression_node(ast_node_t* node) {
         for (int i = node->as.func_call.arguments.size - 1; i >= 0; i--) {
             int r = emit_expression_node(node->as.func_call.arguments.data[i]);
             // Push r to stack, load next 
-            printf("ADD R6, R6, #-1\n");
-            printf("STR R%d, R6, #0 ; Push parameter to stack frame\n", r);
-            printf("\n");
+            emitf("ADD R6, R6, #-1\n");
+            emitf("STR R%d, R6, #0 ; Push parameter to stack frame\n", r);
+            emitf("\n");
         }
-        printf("JSR %s\n\n", node->as.func_call.symbol_ref->as.symbol_ref.identifier);
+        emitf("JSR %s\n\n", node->as.func_call.symbol_ref->as.symbol_ref.identifier);
         int ret = get_empty_reg();
         // load 
-        printf("LDR R%d, R6, #0 ; Load the return value\n", ret);
-        printf("ADD R6, R6, #1 ; Pop return value\n");
-        printf("ADD R6, R6, #%d ; Pop arguments\n", node->as.func_call.arguments.size);
+        emitf("LDR R%d, R6, #0 ; Load the return value\n", ret);
+        emitf("ADD R6, R6, #1 ; Pop return value\n");
+        emitf("ADD R6, R6, #%d ; Pop arguments\n", node->as.func_call.arguments.size);
         return ret;
     }
     else if (node->type == A_INTEGER_LITERAL) {
@@ -126,9 +147,9 @@ static int emit_expression_node(ast_node_t* node) {
         int val = node->as.literal.value;
         // TODO: If val is > 15 then we have to materialize this int somehow.
         int r1 = get_empty_reg();
-        printf("AND R%d, R%d, x0000\n", r1, r1);
+        emitf("AND R%d, R%d, x0000\n", r1, r1);
         if (val != 0) {
-            printf("ADD R%d, R%d, #%d\n", r1, r1, val);
+            emitf("ADD R%d, R%d, #%d\n", r1, r1, val);
         }
         state.regfile[r1] = USED;
         return r1;
@@ -143,10 +164,10 @@ static int emit_expression_node(ast_node_t* node) {
         int r1 = get_empty_reg();
         if (sym_data->parameter) { // Is a parameter
             offset = sym_data->stack_offset + 4; // These should be positive.
-            printf("LDR R%d, R5, #%d ; Load parameter \"%s\"\n", r1, offset, sym_data->identifier);
+            emitf("LDR R%d, R5, #%d ; Load parameter \"%s\"\n", r1, offset, sym_data->identifier);
         }
         else { // Not a parameter
-            printf("LDR R%d, R5, #%d ; Load local variable \"%s\"\n", r1, offset, sym_data->identifier);
+            emitf("LDR R%d, R5, #%d ; Load local variable \"%s\"\n", r1, offset, sym_data->identifier);
         }
         
         
@@ -162,15 +183,15 @@ void emit_ast_node(ast_node_t* node) {
     }
     switch (node->type) {
         case A_PROGRAM: {
-            printf(".ORIG x3000\n");
+            emitf(".ORIG x3000\n");
             
-            printf("LD R6, USER_STACK\n"); // start the stack pointer at the end of user space
-            printf("JSR main\n");
+            emitf("LD R6, USER_STACK\n"); // start the stack pointer at the end of user space
+            emitf("JSR main\n");
             for (int i = 0; i < (node->as.program.body.size); i++)
                 emit_ast_node(node->as.program.body.data[i]);
-            printf("HALT\n");
-            printf("USER_STACK .FILL xFDFF\n");
-            printf(".END\n");
+            emitf("HALT\n");
+            emitf("USER_STACK .FILL xFDFF\n");
+            emitf(".END\n");
             return;
         }
         case A_ASSIGN_EXPR: {
@@ -182,7 +203,7 @@ void emit_ast_node(ast_node_t* node) {
             int reg = emit_expression_node(node->as.assign_expr.right);
             symbol_table_entry* sym_data = symbol_table_search(node->as.assign_expr.left->as.symbol_ref.scope, node->as.assign_expr.left->as.symbol_ref.identifier);
             
-            printf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, sym_data->stack_offset);
+            emitf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, sym_data->stack_offset);
             state.regfile[reg] = UNUSED;
             return;
         }
@@ -195,9 +216,9 @@ void emit_ast_node(ast_node_t* node) {
             // No optimizations yet.
             int reg = emit_expression_node(node->as.return_stmt.expression);
             // Write it into return value slot, which 
-            printf("\n");
-            printf("STR R%d, R5, #3 ; Write return value, always R5 + 3\n", reg);
-            printf("\n");
+            emitf("\n");
+            emitf("STR R%d, R5, #3 ; Write return value, always R5 + 3\n", reg);
+            emitf("\n");
             return;
         }
         case A_COMPOUND_STMT: {
@@ -211,33 +232,33 @@ void emit_ast_node(ast_node_t* node) {
             state.regfile[2] = UNUSED;
             state.regfile[3] = UNUSED;
             // Callee save registers:
-            printf("\n");
-            printf("; Begin function %s:\n", node->as.func_decl.identifier);
-            printf("%s\n", node->as.func_decl.identifier);
-            printf("; Callee Setup: \n");
-            printf("ADD R6, R6, #-1 ; Allocate spot for the return value\n");
-            printf("\n");
-            printf("ADD R6, R6, #-1 ; \n");
-            printf("STR R7, R6, #0  ; Push R7 (Return Address)\n");
-            printf("\n");
-            printf("ADD R6, R6, #-1 ; \n");
-            printf("STR R5, R6, #0  ; Push R5 (Caller's Frame Pointer)\n");
-            printf("\n");
-            printf("ADD R5, R6, #-1 ; Set frame pointer for function\n");
-            printf("\n");
-            printf("; Perform work for function: \n");
+            emitf("\n");
+            emitf("; Begin function %s:\n", node->as.func_decl.identifier);
+            emitf("%s\n", node->as.func_decl.identifier);
+            emitf("; Callee Setup: \n");
+            emitf("ADD R6, R6, #-1 ; Allocate spot for the return value\n");
+            emitf("\n");
+            emitf("ADD R6, R6, #-1 ; \n");
+            emitf("STR R7, R6, #0  ; Push R7 (Return Address)\n");
+            emitf("\n");
+            emitf("ADD R6, R6, #-1 ; \n");
+            emitf("STR R5, R6, #0  ; Push R5 (Caller's Frame Pointer)\n");
+            emitf("\n");
+            emitf("ADD R5, R6, #-1 ; Set frame pointer for function\n");
+            emitf("\n");
+            emitf("; Perform work for function: \n");
             emit_ast_node(node->as.func_decl.body);
-            printf("; Callee Teardown: \n");
-            printf("ADD R6, R5, #1 ; Pop local variables\n");
-            printf("\n");
-            printf("LDR R5, R6, #0 ; Pop the frame pointer\n");
-            printf("ADD R6, R6, #1\n");
-            printf("\n");
-            printf("LDR R7, R6, #0 ; Pop the return address\n");
-            printf("ADD R6, R6, #1\n");
-            printf("RET\n");
-            printf("; End function %s\n", node->as.func_decl.identifier);
-            printf("\n");
+            emitf("; Callee Teardown: \n");
+            emitf("ADD R6, R5, #1 ; Pop local variables\n");
+            emitf("\n");
+            emitf("LDR R5, R6, #0 ; Pop the frame pointer\n");
+            emitf("ADD R6, R6, #1\n");
+            emitf("\n");
+            emitf("LDR R7, R6, #0 ; Pop the return address\n");
+            emitf("ADD R6, R6, #1\n");
+            emitf("RET\n");
+            emitf("; End function %s\n", node->as.func_decl.identifier);
+            emitf("\n");
             break;
         }
         case A_VAR_DECL:
@@ -247,7 +268,7 @@ void emit_ast_node(ast_node_t* node) {
             // Global data section is at address x5000
             // Global variable
             if (node->as.var_decl.scope->parent == NULL) {
-                printf("%s .FILL x0000\n", node->as.var_decl.identifier);
+                emitf("%s .FILL x0000\n", node->as.var_decl.identifier);
                 // No initializer.
                 return;
             }
@@ -257,7 +278,7 @@ void emit_ast_node(ast_node_t* node) {
             // Check current scope:
             if (!node->as.var_decl.is_parameter) {
                 // allocate space for local variable
-                printf("ADD R6, R6, #-1 ; Allocate space for \"%s\"\n", node->as.var_decl.identifier);
+                emitf("ADD R6, R6, #-1 ; Allocate space for \"%s\"\n", node->as.var_decl.identifier);
                 if (node->as.var_decl.initializer != NULL) {
                     // TOOD: Assignment nodes should not really be separate, there should be an assignemnt expression.
                     // But for now, we can kepe initialization separate, as for static ints it works different I suppose
@@ -265,7 +286,7 @@ void emit_ast_node(ast_node_t* node) {
                     int reg = emit_expression_node(node->as.var_decl.initializer);
                     symbol_table_entry* sym_data = symbol_table_search(node->as.var_decl.scope, node->as.var_decl.identifier);
                     
-                    printf("STR R%d, R5, #%d ; Initialize variable\n\n", reg, sym_data->stack_offset);
+                    emitf("STR R%d, R5, #%d ; Initialize variable\n\n", reg, sym_data->stack_offset);
                     state.regfile[reg] = UNUSED;
                 }
                 return;

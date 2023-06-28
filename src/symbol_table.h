@@ -31,7 +31,6 @@ struct SYMBOL_TABLE_STRUCT {
     char* name; // Global / main / etc...
     symbol_vector symbols;
     symbol_table_t* parent;
-    symbol_table_vector children; // This is a vector of symbol table types.
     int offset;
 };
 

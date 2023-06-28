@@ -19,6 +19,8 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    set_out_file("../out/out.asm");
+
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);  /* same as rewind(f); */
@@ -73,6 +75,8 @@ int main(int argc, char **argv) {
     printf("Beginning Code gen:\n");
     emit_ast(root);
     free_ast(root);
+
+    close_out_file();
 
 
     free(file_buffer);

@@ -12,7 +12,9 @@ void emit_ast(ast_node_t* root);
 
 void emit_ast_node(ast_node_t* root);
 
+void set_out_file(char* path);
 
+void close_out_file();
 
 
 #endif

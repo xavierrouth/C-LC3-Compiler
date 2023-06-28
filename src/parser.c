@@ -51,6 +51,7 @@ static void init_postfix_binding_power() {
     postfix_binding_power[OP_DEC] = 15;
     // Array access, function call, struct member access, ptr dereference
 }
+
 static void init_binding_power() {
     init_infix_binding_power();
     init_prefix_binding_power();

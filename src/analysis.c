@@ -68,7 +68,7 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             root->as.func_decl.scope = scope;
 
             // Add the scope
-            symbol_table_vector_push(&(scope->children), func_scope);
+            //symbol_table_vector_push(&(scope->children), func_scope);
             for (int i = 0; i < (root->as.func_decl.parameters.size); i++) {
                 analyze_node(root->as.func_decl.parameters.data[i], func_scope);
             }

@@ -48,10 +48,12 @@ ast_node_t* ast_program_init(ast_node_vector body) {
 }
 
 ast_node_t* ast_func_decl_init(ast_node_t* body, ast_node_vector parameters, type_info_t type_info, char* identifier) {
+    ast_node_t* node = ast_node_init();
+    node->as.func_decl.parameters = parameters;
+    node->as.func_decl.body = body;
+    
     return body;
 }
-
-
 
 // Use this same buffer for all the thingies
 static char print_buffer[128];
@@ -158,50 +160,6 @@ static void visitor_end(ast_node_visitor* visitor, ast_node_t* node) {
         }
     }
 }
-
-void free_ast_node(ast_node_t* node) {
-    switch(node->type) {
-        case A_PROGRAM: {
-            ast_node_vector_free(node->as.program.body);
-            free(node);
-            return;
-        }
-        case A_FUNCTION_DECL: {
-            ast_node_vector_free(node->as.func_decl.parameters);
-            free(node);
-            return;
-        }
-        case A_COMPOUND_STMT: {
-            ast_node_vector_free(node->as.commpound_stmt.statements);
-            free(node);
-            return;
-        }
-        case A_FUNCTION_CALL: {
-            ast_node_vector_free(node->as.func_call.arguments);
-            free(node);
-            return;
-        }
-        // The rest:
-        case A_VAR_DECL:
-        case A_ASSIGN_EXPR:
-        case A_BINOP_EXPR:
-        case A_RETURN_STMT:
-        case A_INTEGER_LITERAL:
-        case A_SYMBOL_REF:
-        case A_UNOP_EXPR:
-            free(node);
-            return;
-        default:
-            printf("free_ast_node() unimplemented for this node type.\n");
-            return;
-    }
-    return;
-}
-
-// Ideally bool would be templated by traversal_type T/F.
-// Then we don't have to repeat code but we also get two versions that are both fast.
-// 'branch predictor will take care of it'
-
 
 void ast_traversal(ast_node_t* root, ast_node_visitor* visitor) {
     //visitor_begin(visitor, root);
@@ -413,4 +371,43 @@ void print_ast_node(ast_node_t* node, int indentation) {
             return;  
 
     }
+}
+
+void free_ast_node(ast_node_t* node) {
+    switch(node->type) {
+        case A_PROGRAM: {
+            ast_node_vector_free(node->as.program.body);
+            free(node);
+            return;
+        }
+        case A_FUNCTION_DECL: {
+            ast_node_vector_free(node->as.func_decl.parameters);
+            free(node);
+            return;
+        }
+        case A_COMPOUND_STMT: {
+            ast_node_vector_free(node->as.commpound_stmt.statements);
+            free(node);
+            return;
+        }
+        case A_FUNCTION_CALL: {
+            ast_node_vector_free(node->as.func_call.arguments);
+            free(node);
+            return;
+        }
+        // The rest:
+        case A_VAR_DECL:
+        case A_ASSIGN_EXPR:
+        case A_BINOP_EXPR:
+        case A_RETURN_STMT:
+        case A_INTEGER_LITERAL:
+        case A_SYMBOL_REF:
+        case A_UNOP_EXPR:
+            free(node);
+            return;
+        default:
+            printf("free_ast_node() unimplemented for this node type.\n");
+            return;
+    }
+    return;
 }

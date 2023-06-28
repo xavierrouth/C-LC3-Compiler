@@ -106,7 +106,6 @@ struct AST_NODE_STRUCT {
         } ternary_op;
         struct { // This is needed for scoping
             ast_node_vector statements;
-            int scope_id;
         } commpound_stmt;
         struct {
             ast_node_t* expression;
