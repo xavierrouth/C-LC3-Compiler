@@ -11,43 +11,62 @@ typedef struct TOKEN_DEBUG_INFO_STRUCT{
 } token_dbg_t;
 
 
+// Rough groupings, some of the tokens take different meanings depending on the context.
 typedef enum TOKEN_KIND_ENUM {
     T_BASE = 0, // 
     T_IDENTIFIER, 
-
     T_INTLITERAL,
+    T_COMMENT,
 
     // ==== Operators ====
     T_ASSIGN, // = 
 
-    T_EQUALITY, // ==
+
     T_ADD, // '+'
     T_SUB, // '-'
     T_MUL, // '*'
     T_DIV, // '/'
+    T_MOD, // '%'
 
-    T_BITAND, // '&'
-    T_BITOR, // '|'
+    T_LOGAND, // '&&'
+    T_LOGOR, // '||'
+    T_LOGNOT, // '!'
 
-    T_LOGAND,
-    T_LOGOR,
-
-    T_INCREMENT,
-    T_DECREMENT,
-
-    T_XMARK,
-
-    T_NOTEQUALS, // '!='
+    T_INCREMENT, // '++'
+    T_DECREMENT, // '--'
 
     // Binary Operators
+    T_BITAND, // '&'
+    T_BITOR, // '|'
+    T_BITXOR, // '^'
+    T_BITFLIP, // '~'
+    T_LEFTSHIFT, // '<<'
+    T_RIGHTSHIFT, // '>>'
 
     // Boolean Operators
-
-    T_LT,
-    T_GT,
-    T_LT_EQ,
-    T_GT_EQ,
+    T_LT, // '<'
+    T_GT, // '>'
+    T_LT_EQUAL, // '<='
+    T_GT_EQUAL, // '>='
+    T_NOTEQUALS, // '!='
+    T_EQUALS, // '==' 
     
+    T_ARROW, // '->'
+    T_TERNARY, // '?'
+
+    // Assignment operators
+    T_ASSIGN_LSHIFT, // <<=
+    T_ASSIGN_RSHIFT, // >>=
+    T_ASSIGN_MUL, // *=
+    T_ASSIGN_ADD, // '+='
+    T_ASSIGN_SUB, // '-='
+    T_ASSIGN_DIV, // '/='
+    T_ASSIGN_MOD, // '%='
+    T_ASSIGN_BITAND, // '&='
+    T_ASSIGN_BITXOR, // '^='
+    T_ASSIGN_BITOR, // '|='
+
+    // Punctuation
     T_LPAREN, // '('
     T_RPAREN, // ')'
     T_LBRACE, // '{'
@@ -58,12 +77,6 @@ typedef enum TOKEN_KIND_ENUM {
     T_COLON, // ':'
     T_COMMA, // ','
     T_SEMICOLON, // ';'
-
-    T_MOD, // '%'
-
-    T_ARROW, // '->'
-
-    T_ASSIGN_LSHIFT, // <<=
 
     // ==== Keywords ====
     // Types
@@ -121,12 +134,12 @@ static const char * token_type_to_str(token_enum type) {
         case T_BITOR: return "T_BITOR";
         case T_LOGAND: return "T_LOGAND";
         case T_LOGOR: return "T_LOGOR";
-        case T_XMARK: return "T_XMARK";
+        case T_LOGNOT: return "T_LOGNOT";
         case T_NOTEQUALS: return "T_NOTEQUALS";
         case T_LT: return "T_LT";
         case T_GT: return "T_GT";
-        case T_LT_EQ: return "T_LT_EQ";
-        case T_GT_EQ: return "T_GT_EQ";
+        case T_LT_EQUAL: return "T_LT_EQUAL";
+        case T_GT_EQUAL: return "T_GT_EQUAL";
         case T_LPAREN: return "T_LPAREN";
         case T_RPAREN: return "T_RPAREN";
         case T_LBRACE: return "T_LBRACE";
@@ -139,11 +152,14 @@ static const char * token_type_to_str(token_enum type) {
         case T_INT: return "T_INT";
         case T_RETURN: return "T_RETURN";
         case T_IF: return "T_IF";
-        case T_EQUALITY: return "T_EQUALITY";
+        case T_EQUALS: return "T_EQUALS";
         case T_END: return "T_END";
         case T_VOID: return "T_VOID";
         case T_DECREMENT: return "T_DECREMENT";
         case T_INCREMENT: return "T_INCREMENT";
+        case T_BITXOR: return "T_BITXOR";
+        case T_ARROW: return "T_ARROW";
+        case T_TERNARY: return "T_TERNARY";
         default:
             break;
     }

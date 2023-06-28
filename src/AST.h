@@ -136,6 +136,11 @@ struct AST_NODE_STRUCT {
         } var_decl;
         struct {
             char* identifier;
+            type_info_t type_info;
+            symbol_table_t* scope;
+        } param_decl;
+        struct {
+            char* identifier;
             ast_node_t* body; // Compound statement
             type_info_t type_info;
             ast_node_vector parameters; // This should be a bunch of variable decls.

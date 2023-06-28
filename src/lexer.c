@@ -166,8 +166,11 @@ static token_enum char_to_token_type(char c) {
         case '-': return T_SUB;
         case ';': return T_SEMICOLON;
         case ',': return T_COMMA;
+        case '~': return T_BITFLIP;
+        case '?': return T_TERNARY;
+        case ':': return T_COLON;
     }
-    return T_DEFAULT;
+    return T_BASE;
 }
 
 static void move_to_str_buffer(char* contents, int len) {
@@ -200,7 +203,7 @@ token_t get_token() {
                 else {
                     putback(c);
                     move_to_str_buffer(contents, 1);
-                    token.kind = T_XMARK;
+                    token.kind = T_LOGNOT;
                     return token;
                 }
             case '&':
@@ -209,16 +212,39 @@ token_t get_token() {
                     token.kind = T_LOGAND;
                     return token;
                 }
+                else if (c == '=') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_ASSIGN_BITAND;
+                    return token;
+                }
                 else {
                     putback(c);
                     move_to_str_buffer(contents, 1);
-                    token.kind = T_MOD;
+                    token.kind = T_BITAND;
                     return token;
                 }
+            case '|':
+                if ((c = next()) == '|') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_LOGOR;
+                    return token;
+                }
+                else if (c == '=') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_ASSIGN_BITOR;
+                    return token;
+                }
+                else {
+                    putback(c);
+                    move_to_str_buffer(contents, 1);
+                    token.kind = T_BITOR;
+                    return token;
+                }
+            
             case '=':
                 if ((c = next()) == '=') {
                     move_to_str_buffer(contents, 2);
-                    token.kind = T_EQUALITY;
+                    token.kind = T_EQUALS;
                     return token;
                 }
                 else {
@@ -227,6 +253,36 @@ token_t get_token() {
                     token.kind = T_ASSIGN;
                     return token;
                 }
+            case '%':
+                if ((c = next()) == '=') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_ASSIGN_MOD;
+                    return token;
+                }
+                else {
+                    putback(c);
+                    move_to_str_buffer(contents, 1);
+                    token.kind = T_MOD;
+                    return token;
+                }
+            case '/':
+                if ((c = next()) == '=') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_ASSIGN_DIV;
+                    return token;
+                }
+                else if (c == '/') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_COMMENT;
+                    return token;
+                }
+                else {
+                    putback(c);
+                    move_to_str_buffer(contents, 1);
+                    token.kind = T_DIV;
+                    return token;
+                }
+                
             case '-':
                 if ((c = next()) == '-') {
                     move_to_str_buffer(contents, 2);
@@ -239,6 +295,11 @@ token_t get_token() {
                     token.kind = T_ARROW;
                     return token;
                 }
+                else if (c == '=') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_ASSIGN_SUB;
+                    return token;
+                }
                 else {
                     putback(c);
                     move_to_str_buffer(contents, 1);
@@ -248,7 +309,12 @@ token_t get_token() {
             case '+':
                 if((c = next()) == '=') {
                     move_to_str_buffer(contents, 2);
-                    //token.kind = T_ADD_INC;
+                    token.kind = T_ASSIGN_ADD;
+                    return token;
+                }
+                else if (c == '+') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_INCREMENT;
                     return token;
                 }
                 else {
@@ -260,7 +326,7 @@ token_t get_token() {
             case '*':
                 if ((c = next()) == '=') {
                     move_to_str_buffer(contents, 2);
-                    //token.kind = T_MUL_INC;
+                    token.kind = T_ASSIGN_MUL;
                     return token;
                 }
                 else {
@@ -269,13 +335,79 @@ token_t get_token() {
                     token.kind = T_MUL;
                     return token;
                 }
+            case '<':
+                if ((c = next()) == '=') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_LT_EQUAL;
+                    return token;
+                }
+                else if (c == '<') {
+                    if ((c = next()) == '=') {
+                        move_to_str_buffer(contents, 3);
+                        token.kind = T_ASSIGN_LSHIFT;
+                    }
+                    else {
+                        putback(c);
+                        move_to_str_buffer(contents, 2);
+                        token.kind = T_LEFTSHIFT;
+                    }
+                    return token;
+                }
+                else {
+                    putback(c);
+                    move_to_str_buffer(contents, 1);
+                    token.kind = T_LT;
+                    return token;
+                }
+            case '>':
+                if ((c = next()) == '=') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_GT_EQUAL;
+                    return token;
+                }
+                else if (c == '>') {
+                    if ((c = next()) == '=') {
+                        move_to_str_buffer(contents, 3);
+                        token.kind = T_ASSIGN_RSHIFT;
+                    }
+                    else {
+                        putback(c);
+                        move_to_str_buffer(contents, 2);
+                        token.kind = T_RIGHTSHIFT;
+                    }
+                    return token;
+                }
+                else {
+                    putback(c);
+                    move_to_str_buffer(contents, 1);
+                    token.kind = T_GT;
+                    return token;
+                }
+            case '^':
+                if ((c = next()) == '=') {
+                    move_to_str_buffer(contents, 2);
+                    token.kind = T_ASSIGN_BITXOR;
+                    return token;
+                }
+                else {
+                    putback(c);
+                    move_to_str_buffer(contents, 1);
+                    token.kind = T_BITXOR;
+                    return token;
+                }
+
             // Single token ones:
+            case '~':
             case '(':
             case ')':
             case ';':
             case ',':
             case '{':
             case '}':
+            case ':':
+            case '[':
+            case ']':
+            case '?':
                 token.kind = char_to_token_type(c);
                 move_to_str_buffer(contents, 1);
                 return token;

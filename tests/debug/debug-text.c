@@ -1,4 +1,4 @@
-int fib(int b, int c) {
+int test(int b, int c) {
     return b + c + 1;
 }
 
