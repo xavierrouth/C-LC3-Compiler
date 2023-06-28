@@ -1,6 +1,8 @@
+int test(int b, int c) {
+    return b + c + 1;
+}
+
 int main() {
-    int a = 0;
-    a = 3 + a;
-    return a + 5;
+    return 5 + test(3, 4) + 2;
 }
 

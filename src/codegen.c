@@ -101,6 +101,25 @@ static int emit_expression_node(ast_node_t* node) {
             }
         }
     }
+    else if (node->type == A_FUNCTION_CALL) {
+        node->as.func_call.symbol_ref;
+
+        // Push arguments right to left.
+        for (int i = node->as.func_call.arguments.size - 1; i >= 0; i--) {
+            int r = emit_expression_node(node->as.func_call.arguments.data[i]);
+            // Push r to stack, load next 
+            printf("ADD R6, R6, #-1\n");
+            printf("STR R%d, R6, #0 ; Push parameter to stack frame\n", r);
+            printf("\n");
+        }
+        printf("JSR %s\n\n", node->as.func_call.symbol_ref->as.symbol_ref.identifier);
+        int ret = get_empty_reg();
+        // load 
+        printf("LDR R%d, R6, #0 ; Load the return value\n", ret);
+        printf("ADD R6, R6, #1 ; Pop return value\n");
+        printf("ADD R6, R6, #%d ; Pop arguments\n", node->as.func_call.arguments.size);
+        return ret;
+    }
     else if (node->type == A_INTEGER_LITERAL) {
         // We probably just want to place this in a constant pool and load from there.
         // Get a register to place this in
@@ -118,9 +137,19 @@ static int emit_expression_node(ast_node_t* node) {
         // Do now
         symbol_table_entry* sym_data = symbol_table_search(node->as.symbol_ref.scope, node->as.symbol_ref.identifier);
         // Load 
+        // Parameters need a positive offset??
         int offset = sym_data->stack_offset;
+        // Is a parameter
         int r1 = get_empty_reg();
-        printf("LDR R%d, R5, #%d ; Load local variable \"%s\"\n", r1, offset, sym_data->identifier);
+        if (sym_data->parameter) { // Is a parameter
+            offset = sym_data->stack_offset + 4; // These should be positive.
+            printf("LDR R%d, R5, #%d ; Load parameter \"%s\"\n", r1, offset, sym_data->identifier);
+        }
+        else { // Not a parameter
+            printf("LDR R%d, R5, #%d ; Load local variable \"%s\"\n", r1, offset, sym_data->identifier);
+        }
+        
+        
         return r1;
     }
     

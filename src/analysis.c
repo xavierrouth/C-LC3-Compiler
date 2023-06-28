@@ -23,9 +23,18 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             symbol_table_entry var_decl = {0};
             // TODO: Search only current scope to make sure this symbol doesn't already exist.
             var_decl.identifier = root->as.var_decl.identifier;
-            var_decl.stack_offset = scope->offset--;
+            
             var_decl.type_info = root->as.var_decl.type_info;
             var_decl.parameter = root->as.var_decl.is_parameter;
+            static int param_offset = 0;
+            if (var_decl.parameter) {
+                var_decl.stack_offset = param_offset++;
+            }
+            else {
+                var_decl.stack_offset = scope->offset--;
+                param_offset = 0;
+            }
+            
             
             // Set the scope in the node to the correct symbol table.
             root->as.var_decl.scope = scope;
@@ -47,7 +56,7 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             // Make a symbol to go in our current symbol table
             symbol_table_entry func_symbol = {0};
             func_symbol.identifier = root->as.func_decl.identifier;
-            func_symbol.stack_offset = scope->offset--; // Subtract the size of the data type / struct
+            func_symbol.stack_offset = scope->offset--;
             func_symbol.type_info = root->as.func_decl.type_info;
             symbol_vector_push(&(scope->symbols), func_symbol);
 
