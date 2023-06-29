@@ -156,14 +156,14 @@ static int emit_expression_node(ast_node_t* node) {
     }
     else if (node->type == A_SYMBOL_REF) {
         // Do now
-        symbol_table_entry* sym_data = symbol_table_search(node->as.symbol_ref.scope, node->as.symbol_ref.identifier);
+        symtable_entry* sym_data = symtable_search(node->as.symbol_ref.scope, node->as.symbol_ref.identifier);
         // Load 
         // Parameters need a positive offset??
-        int offset = sym_data->stack_offset;
+        int offset = sym_data->offset;
         // Is a parameter
         int r1 = get_empty_reg();
-        if (sym_data->parameter) { // Is a parameter
-            offset = sym_data->stack_offset + 4; // These should be positive.
+        if (sym_data->type == PARAMETER) { // Is a parameter
+            offset = sym_data->offset + 4; // These should be positive.
             emitf("LDR R%d, R5, #%d ; Load parameter \"%s\"\n", r1, offset, sym_data->identifier);
         }
         else { // Not a parameter
@@ -201,9 +201,9 @@ void emit_ast_node(ast_node_t* node) {
             // This requires a symbol ref. We can't do those yet.
             // This means store.
             int reg = emit_expression_node(node->as.assign_expr.right);
-            symbol_table_entry* sym_data = symbol_table_search(node->as.assign_expr.left->as.symbol_ref.scope, node->as.assign_expr.left->as.symbol_ref.identifier);
+            symtable_entry* sym_data = symtable_search(node->as.assign_expr.left->as.symbol_ref.scope, node->as.assign_expr.left->as.symbol_ref.identifier);
             
-            emitf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, sym_data->stack_offset);
+            emitf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, sym_data->offset);
             state.regfile[reg] = UNUSED;
             return;
         }
@@ -222,8 +222,8 @@ void emit_ast_node(ast_node_t* node) {
             return;
         }
         case A_COMPOUND_STMT: {
-            for (int i = 0; i < (node->as.commpound_stmt.statements.size); i++)
-                emit_ast_node(node->as.commpound_stmt.statements.data[i]);
+            for (int i = 0; i < (node->as.compound_stmt.statements.size); i++)
+                emit_ast_node(node->as.compound_stmt.statements.data[i]);
             break;
         }
         case A_FUNCTION_DECL: {
@@ -267,7 +267,7 @@ void emit_ast_node(ast_node_t* node) {
             // as they are declared in the program.
             // Global data section is at address x5000
             // Global variable
-            if (node->as.var_decl.scope->parent == NULL) {
+            if (node->as.var_decl.scope == 0) {
                 emitf("%s .FILL x0000\n", node->as.var_decl.identifier);
                 // No initializer.
                 return;
@@ -284,13 +284,14 @@ void emit_ast_node(ast_node_t* node) {
                     // But for now, we can kepe initialization separate, as for static ints it works different I suppose
                     // Load a reg with the initializer value
                     int reg = emit_expression_node(node->as.var_decl.initializer);
-                    symbol_table_entry* sym_data = symbol_table_search(node->as.var_decl.scope, node->as.var_decl.identifier);
+                    symtable_entry* sym_data = symtable_search(node->as.var_decl.scope, node->as.var_decl.identifier);
                     
-                    emitf("STR R%d, R5, #%d ; Initialize variable\n\n", reg, sym_data->stack_offset);
+                    emitf("STR R%d, R5, #%d ; Initialize variable\n\n", reg, sym_data->offset);
                     state.regfile[reg] = UNUSED;
                 }
                 return;
             }
+
            
         case A_BINOP_EXPR: 
         case A_INTEGER_LITERAL: 

@@ -78,9 +78,8 @@ struct AST_NODE_STRUCT {
             ast_node_t* symbol_ref;
             ast_node_vector arguments; 
         } func_call;
-        // TODO: Include symbol ref??
         struct { // A reference to an already defined symbol
-            symbol_table_t* scope; // This needs to be populated during semantic analysis.
+            int scope;
             type_enum type;
             char* identifier;
         } symbol_ref;
@@ -106,7 +105,8 @@ struct AST_NODE_STRUCT {
         } ternary_op;
         struct { // This is needed for scoping
             ast_node_vector statements;
-        } commpound_stmt;
+            bool new_scope;
+        } compound_stmt;
         struct {
             ast_node_t* expression;
         } expression_stmt;
@@ -131,20 +131,20 @@ struct AST_NODE_STRUCT {
             char* identifier;
             ast_node_t* initializer;
             type_info_t type_info;
+            int scope;
             bool is_parameter;
-            symbol_table_t* scope; // Points to a symbol table 
         } var_decl;
         struct {
             char* identifier;
             type_info_t type_info;
-            symbol_table_t* scope;
+            int scope;
         } param_decl;
         struct {
             char* identifier;
             ast_node_t* body; // Compound statement
             type_info_t type_info;
             ast_node_vector parameters; // This should be a bunch of variable decls.
-            symbol_table_t* scope;
+            int scope;
         } func_decl; // Do the parameters need to have their own parm var decl node type?
         struct {
             ast_node_vector body;

@@ -208,8 +208,8 @@ void ast_traversal(ast_node_t* root, ast_node_visitor* visitor) {
             break;
         }
         case A_COMPOUND_STMT: {
-            for (int i = 0; i < (root->as.commpound_stmt.statements.size); i++)
-                ast_traversal(root->as.commpound_stmt.statements.data[i], visitor);
+            for (int i = 0; i < (root->as.compound_stmt.statements.size); i++)
+                ast_traversal(root->as.compound_stmt.statements.data[i], visitor);
             break;
         }
         case A_UNOP_EXPR: {
@@ -348,7 +348,7 @@ void print_ast_node(ast_node_t* node, int indentation) {
             snprintf(print_buffer, 128,
                 "<node=%s, num_statements=\"%d\", size=%d, index=%d>\n", \
                 ast_type_to_str(node->type),
-                node->as.commpound_stmt.statements.size,
+                node->as.compound_stmt.statements.size,
                 node->size,
                 node->index);
             printf_indent(indentation*3, print_buffer);
@@ -386,7 +386,7 @@ void free_ast_node(ast_node_t* node) {
             return;
         }
         case A_COMPOUND_STMT: {
-            ast_node_vector_free(node->as.commpound_stmt.statements);
+            ast_node_vector_free(node->as.compound_stmt.statements);
             free(node);
             return;
         }

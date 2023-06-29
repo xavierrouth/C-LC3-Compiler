@@ -8,36 +8,44 @@
 typedef struct SYMBOL_TABLE_ENTRY_STRUCT {
     char* identifier;
     type_info_t type_info;
-    int stack_offset; //Location on stack frame as offset
-    bool parameter;
+    int size; 
+    int offset; //Location on stack frame as offset
+    enum {
+        PARAMETER,
+        VARIABLE,
+        FUNCTION
+    } type;
     // These should all be negative as stack grows down.
-} symbol_table_entry;
+} symtable_entry;
 
-#define T symbol_table_entry
+#define T symtable_entry
 #define NAME symbol
 #include "vector.h"
 #undef NAME
 #undef T
 
-typedef struct SYMBOL_TABLE_STRUCT symbol_table_t;
+typedef struct SYMBOL_SUBTABLE_STRUCT {
+    char* name; // Global / main / etc...
+    symbol_vector symbols;
+    int parent;
+    int offset;
+} symtable_t;
 
-#define T symbol_table_t*
-#define NAME symbol_table
+#define T symtable_t
+#define NAME symtable
 #include "vector.h"
 #undef NAME
 #undef T
 
-struct SYMBOL_TABLE_STRUCT {
-    char* name; // Global / main / etc...
-    symbol_vector symbols;
-    symbol_table_t* parent;
-    int offset;
-};
+extern symtable_vector symtable_root;
 
-symbol_table_t* symbol_table_init(symbol_table_t* parent); 
+void symtable_root_init(); 
 
-void symbol_table_free(symbol_table_t* table);
+int symtable_get_parent(int scope);
 
-symbol_table_entry* symbol_table_search(symbol_table_t* branch, char* identifier);
+// Initialize a subtable
+int symtable_branch_init(int parent, char* name); 
+
+symtable_entry* symtable_search(int branch, char* identifier);
 
 #endif

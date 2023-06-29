@@ -437,12 +437,12 @@ static ast_node_t* parse_compound_statement() {
    
     eat_token(T_LBRACE);
     // Parse compound statement; // EATS THE BRACES
-    node->as.commpound_stmt.statements = ast_node_vector_init(16);
+    node->as.compound_stmt.statements = ast_node_vector_init(16);
     ast_node_t* stmt;
     // TOOD: Implement parse_stmt;
     // parse_stmt needs to choose between parse decleration and parse something else
     while ((stmt = parse_statement()) != NULL) {
-        ast_node_vector_push(&(node->as.commpound_stmt.statements), stmt);
+        ast_node_vector_push(&(node->as.compound_stmt.statements), stmt);
         if (peek_token().kind == T_RBRACE)
             break;
     }

@@ -71,6 +71,7 @@ int main(int argc, char **argv) {
     */
 
     print_ast(root);
+    symtable_root_init();
     analysis(root);
     printf("Beginning Code gen:\n");
     emit_ast(root);

@@ -7,6 +7,7 @@
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #ifndef NAME
 #define NAME T

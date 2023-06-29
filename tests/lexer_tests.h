@@ -83,7 +83,7 @@ l_every_token(const MunitParameter params[], void* data) {
         
         munit_assert_int(t.kind, ==, token_gold[i]);
         t = get_token();
-        print_token(&t);
+        //print_token(&t);
     }
     free(file_buffer);
 

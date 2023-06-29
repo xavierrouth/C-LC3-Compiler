@@ -3,10 +3,9 @@
 
 #include <string.h>
 
-static symbol_table_t _global_table;
-static symbol_table_t* global_table;
+extern symtable_vector symtable_root;
  
-static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
+static void analyze_node(ast_node_t* root, int scope) {
     //visitor_begin(visitor, root);
     if(root == NULL)
         return;
@@ -19,26 +18,17 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             break;
         }
         case A_VAR_DECL: {
-            // Create the symbol table entry:
-            symbol_table_entry var_decl = {0};
-            // TODO: Search only current scope to make sure this symbol doesn't already exist.
-            var_decl.identifier = root->as.var_decl.identifier;
-            
-            var_decl.type_info = root->as.var_decl.type_info;
-            var_decl.parameter = root->as.var_decl.is_parameter;
-            static int param_offset = 0;
-            if (var_decl.parameter) {
-                var_decl.stack_offset = param_offset++;
-            }
-            else {
-                var_decl.stack_offset = scope->offset--;
-                param_offset = 0;
-            }
-            
-            
             // Set the scope in the node to the correct symbol table.
             root->as.var_decl.scope = scope;
-            symbol_vector_push(&(scope->symbols), var_decl);
+
+            // Create the symbol table entry:
+            symtable_entry var_decl = {0};
+            // TODO: Search only current scope to make sure this symbol doesn't already exist.
+            var_decl.identifier = root->as.var_decl.identifier;
+            var_decl.type_info = root->as.var_decl.type_info;
+            var_decl.size = 1;
+            
+            symbol_vector_push(&(symtable_root.data[scope].symbols), var_decl);
             analyze_node(root->as.var_decl.initializer, scope);
             break;
         }
@@ -53,22 +43,23 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             break;
         }
         case A_FUNCTION_DECL: {
-            // Make a symbol to go in our current symbol table
-            symbol_table_entry func_symbol = {0};
-            func_symbol.identifier = root->as.func_decl.identifier;
-            func_symbol.stack_offset = scope->offset--;
-            func_symbol.type_info = root->as.func_decl.type_info;
-            symbol_vector_push(&(scope->symbols), func_symbol);
-
-            // Make a scope for the function's parameters:
-            symbol_table_t* func_scope = symbol_table_init(scope);
-            func_scope->name = root->as.func_decl.identifier;
-
             // Tell the node the scope of this declaration.
             root->as.func_decl.scope = scope;
 
+            // Make a symbol to go in our current symbol table
+            symtable_entry func_symbol = {0};
+            func_symbol.identifier = root->as.func_decl.identifier;
+            func_symbol.size = 1; // This should never be used for a function.
+            func_symbol.type = FUNCTION;
+            func_symbol.type_info = root->as.func_decl.type_info;
+
+            symbol_vector_push(&(symtable_root.data[scope].symbols), func_symbol);
+
+            // Make a scope for the function's parameters:
+            int func_scope = symtable_branch_init(scope, root->as.func_decl.identifier);
+
             // Add the scope
-            //symbol_table_vector_push(&(scope->children), func_scope);
+            //symtable_vector_push(&(scope->children), func_scope);
             for (int i = 0; i < (root->as.func_decl.parameters.size); i++) {
                 analyze_node(root->as.func_decl.parameters.data[i], func_scope);
             }
@@ -88,11 +79,12 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
             break;
         }
         case A_COMPOUND_STMT: {
-            // Create another scope
-            // TODO: C scoping means this really should make anew scope, but not implemented.
-            // This is dumb, compound stmt shouldn't create a new scope for now.
-            for (int i = 0; i < (root->as.commpound_stmt.statements.size); i++)
-                analyze_node(root->as.commpound_stmt.statements.data[i], scope);
+            int stmt_scope = scope;
+            if (root->as.compound_stmt.new_scope) {
+                stmt_scope = symtable_branch_init(scope, "compound_stmt");
+            }
+            for (int i = 0; i < (root->as.compound_stmt.statements.size); i++)
+                analyze_node(root->as.compound_stmt.statements.data[i], stmt_scope);
             break;
         }
         case A_UNOP_EXPR: {
@@ -113,11 +105,7 @@ static void analyze_node(ast_node_t* root, symbol_table_t* scope) {
 }
 
 void analysis(ast_node_t* root) {
-    global_table = symbol_table_init(NULL);
-    global_table->name = "global table";
-    
-    analyze_node(root, global_table);
-
+    analyze_node(root, 0);
     return;
 }
 
