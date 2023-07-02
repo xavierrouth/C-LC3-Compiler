@@ -1,8 +1,7 @@
-int test(int b, int c) {
-    return b + c + 1;
-}
+int pringle = 4123;
 
-int main() {
-    return 5 + test(3, 4) + 2;
-}
+int bingle = fweafwae;
+
+void tingle;
+
 

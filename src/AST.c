@@ -19,6 +19,10 @@ bool ast_instance_live[MAX_NUM_AST_NODES];
 
 struct AST_NODE_STRUCT ast_node_data(ast_node_t node) {
     // Returns the underlying data
+    if (ast_instance_live[node] == false) {
+        errorf("Accessing dead ast node\n");
+        return ast_instances[0];
+    }
     if (!(node < MAX_NUM_AST_NODES)) {
         errorf("Accessing invalid ast node\n");
         return ast_instances[0];
@@ -465,23 +469,25 @@ void print_ast_node(ast_node_t node, int indentation) {
 }
 
 void free_ast_node(ast_node_t node) {
+    
     switch(ast_instances[node].type) {
         case A_PROGRAM: {
             ast_node_vector_free(ast_instances[node].as.program.body);
-            return;
+            break;
         }
         case A_FUNCTION_DECL: {
             ast_node_vector_free(ast_instances[node].as.func_decl.parameters);
-            return;
+            break;
         }
         case A_COMPOUND_STMT: {
             ast_node_vector_free(ast_instances[node].as.stmt.compound.statements);
-            return;
+            break;
         }
         case A_FUNCTION_CALL: {
             ast_node_vector_free(ast_instances[node].as.expr.call.arguments);
-            return;
+            break;
         }
     }
+    ast_instance_live[node] = false;
     return;
 }
