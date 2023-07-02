@@ -116,12 +116,18 @@ static void init_binding_power() {
     init_postfix_binding_power();
 }
 
-static ast_op_enum token_type_to_op(token_enum type) {
+static ast_op_enum token_type_to_op(const token_enum type) {
     switch(type) {
         case T_ADD: return OP_ADD;
         case T_SUB: return OP_SUB;
         case T_DIV: return OP_DIV;
         case T_MUL: return OP_MUL;
+        case T_EQUALS: return OP_EQUALS;
+        case T_NOTEQUALS: return OP_NOTEQUALS;
+        case T_LT: return OP_LT;
+        case T_GT: return OP_GT;
+        case T_LT_EQUAL: return OP_LT_EQUAL;
+        case T_GT_EQUAL: return OP_GT_EQUAL;
     }
     return -1;
 }
@@ -150,6 +156,8 @@ static ast_node_t parse_declaration();
 static ast_node_t parse_expression(int binding_power);
 
 static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info);
+
+static ast_node_t parse_compound_statement();
 
 static type_info_t parse_declaration_specifiers() {
     // Storage Class:
@@ -324,7 +332,35 @@ static ast_node_t parse_return_statement() {
 }
 
 static ast_node_t parse_if_statement() {
-    return -1;
+    // TODO: Only support
+    eat_token(T_IF);
+    eat_token(T_LPAREN);
+    ast_node_t condition = parse_expression(0);
+    ast_node_t if_stmt = -1;
+    ast_node_t else_stmt = -1;
+    eat_token(T_RPAREN);
+
+    if (expect_token(T_LBRACE, false)) {
+        if_stmt = parse_compound_statement();
+    }
+    else {
+        // Can be a statement just not a declaration?? wtf.
+        if_stmt = parse_expression(0);
+        eat_token(T_SEMICOLON);
+    }
+    // Else part
+    if (expect_token(T_ELSE, false)) {
+        eat_token(T_ELSE);
+        if (expect_token(T_LBRACE, false)) {
+            else_stmt = parse_compound_statement();
+        }
+        else {
+            else_stmt = parse_expression(0);
+            eat_token(T_SEMICOLON);
+        }
+    }
+    ast_node_t node = ast_if_stmt_init(condition, if_stmt, else_stmt);
+    return node;
 }
 
 // Parse a statement that is in a function.
@@ -334,6 +370,9 @@ static ast_node_t parse_statement() {
     if (expect_token(T_RETURN, false)) {
         return parse_return_statement();
     }
+    //else if (expect_token(T_SWITCH)) {
+    //    return a
+    //}
     else if (expect_token(T_IF, false)) {
         return parse_if_statement();
     }

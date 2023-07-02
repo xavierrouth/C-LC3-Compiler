@@ -2,7 +2,9 @@
 #include "AST.h"
 #include "munit.h"
 
-static MunitResult test_helper(const ast_node_enum* nodes_gold, int gold_size, const char* path) {
+#include <stdbool.h>
+
+static MunitResult test_helper(const ast_node_enum* nodes_gold, int gold_size, const char* path, bool debug) {
     munit_assert(1 == 1);
     
     FILE* f;
@@ -31,13 +33,19 @@ static MunitResult test_helper(const ast_node_enum* nodes_gold, int gold_size, c
     init_parser(false);
     build_ast();
     ast_node_t root = get_root();
-    //print_ast(root);
+    if (debug) {
+        printf("\n");
+        print_ast(root);
+    }
+        
     check_ast(root, nodes_result);
     free_ast(root);
 
     for (int i = 0; i < gold_size; i++) {
         munit_assert_int(nodes_result[i], ==, nodes_gold[i]);
-        //print_ast_node(nodes_gold[i], 1);
+        if (debug) {
+            print_ast_node(nodes_gold[i], 1);
+        }
     }
 
     free(file_buffer);
@@ -58,7 +66,7 @@ p_simple_1(const MunitParameter params[], void* data) {
     int gold_size = sizeof(nodes_gold) / sizeof(nodes_gold[0]);
     //printf("size:%d\n", gold_size);
     const char * path = "../tests/parser/simple-1.c";
-    return test_helper(nodes_gold, gold_size, path);
+    return test_helper(nodes_gold, gold_size, path, false);
 }
 
 static MunitResult
@@ -76,7 +84,7 @@ p_simple_2(const MunitParameter params[], void* data) {
     int gold_size = sizeof(nodes_gold) / sizeof(nodes_gold[0]);
     //printf("size:%d\n", gold_size);
     const char * path = "../tests/parser/simple-2.c";
-    return test_helper(nodes_gold, gold_size, path);
+    return test_helper(nodes_gold, gold_size, path, false);
 }
 
 static MunitResult
@@ -99,7 +107,7 @@ p_func_decl_1(const MunitParameter params[], void* data) {
     int gold_size = sizeof(nodes_gold) / sizeof(nodes_gold[0]);
     //printf("size:%d\n", gold_size);
     const char * path = "../tests/parser/func-decl-1.c";
-    return test_helper(nodes_gold, gold_size, path);
+    return test_helper(nodes_gold, gold_size, path, false);
 }
 
 static MunitResult
@@ -133,7 +141,77 @@ p_func_decl_2(const MunitParameter params[], void* data) {
     int gold_size = sizeof(nodes_gold) / sizeof(nodes_gold[0]);
     //printf("size:%d\n", gold_size);
     const char * path = "../tests/parser/func-decl-2.c";
-    return test_helper(nodes_gold, gold_size, path);
+    return test_helper(nodes_gold, gold_size, path, false);
+}
+
+static MunitResult
+p_if_stmt_1(const MunitParameter params[], void* data) {
+    ast_node_enum nodes_gold[] = {
+        A_PROGRAM,
+        A_FUNCTION_DECL,
+        A_COMPOUND_STMT,
+        A_VAR_DECL,
+        A_INTEGER_LITERAL,
+        A_IF_STMT,
+        A_BINARY_EXPR,
+        A_SYMBOL_REF,
+        A_INTEGER_LITERAL,
+        A_COMPOUND_STMT,
+        A_VAR_DECL,
+        A_RETURN_STMT,
+        A_INTEGER_LITERAL
+    };
+    int gold_size = sizeof(nodes_gold) / sizeof(nodes_gold[0]);
+    //printf("size:%d\n", gold_size);
+    const char * path = "../tests/parser/if-stmt-1.c";
+    return test_helper(nodes_gold, gold_size, path, false);
+}
+
+static MunitResult
+p_if_stmt_2(const MunitParameter params[], void* data) {
+    ast_node_enum nodes_gold[] = {
+        A_PROGRAM,
+        A_FUNCTION_DECL, // test
+        A_PARAM_DECL,
+        A_PARAM_DECL,
+        A_COMPOUND_STMT,
+        A_RETURN_STMT,
+        A_BINARY_EXPR,
+    };
+    int gold_size = sizeof(nodes_gold) / sizeof(nodes_gold[0]);
+    //printf("size:%d\n", gold_size);
+    const char * path = "../tests/parser/if-stmt-2.c";
+    return test_helper(nodes_gold, gold_size, path, false);
+}
+
+static MunitResult
+p_if_stmt_3(const MunitParameter params[], void* data) {
+    ast_node_enum nodes_gold[] = {
+        A_PROGRAM,
+        A_FUNCTION_DECL,
+        A_COMPOUND_STMT,
+        A_VAR_DECL,
+        A_INTEGER_LITERAL,
+        
+        A_IF_STMT,
+        A_BINARY_EXPR,
+        A_SYMBOL_REF,
+        A_INTEGER_LITERAL,
+        A_COMPOUND_STMT,
+        A_IF_STMT,
+        A_BINARY_EXPR,
+        A_INTEGER_LITERAL,
+        A_INTEGER_LITERAL,
+        A_COMPOUND_STMT,
+        A_RETURN_STMT,
+        A_BINARY_EXPR,
+        A_INTEGER_LITERAL,
+        A_INTEGER_LITERAL
+    };
+    int gold_size = sizeof(nodes_gold) / sizeof(nodes_gold[0]);
+    //printf("size:%d\n", gold_size);
+    const char * path = "../tests/parser/if-stmt-3.c";
+    return test_helper(nodes_gold, gold_size, path, false);
 }
 
 MunitTest parser_suite_tests[] = {
@@ -163,6 +241,27 @@ MunitTest parser_suite_tests[] = {
     },{
         .name = "/func_decl_2",
         .test = p_func_decl_2,
+        .setup = NULL,
+        .tear_down = NULL,
+        .options = MUNIT_TEST_OPTION_NONE,
+        .parameters = NULL,
+    },{
+        .name = "/if_stmt_1",
+        .test = p_if_stmt_1,
+        .setup = NULL,
+        .tear_down = NULL,
+        .options = MUNIT_TEST_OPTION_NONE,
+        .parameters = NULL,
+    },{
+        .name = "/if_stmt_2",
+        .test = p_if_stmt_2,
+        .setup = NULL,
+        .tear_down = NULL,
+        .options = MUNIT_TEST_OPTION_NONE,
+        .parameters = NULL,
+    },{
+        .name = "/if_stmt_3",
+        .test = p_if_stmt_3,
         .setup = NULL,
         .tear_down = NULL,
         .options = MUNIT_TEST_OPTION_NONE,

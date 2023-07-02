@@ -34,6 +34,13 @@ typedef enum AST_OP_ENUM {
     OP_INC,
     OP_DEC,
     OP_COMMA, // Wtf is the comma operator??
+    // Conditional, should always return true or false.
+    OP_EQUALS,
+    OP_NOTEQUALS,
+    OP_LT,
+    OP_GT,
+    OP_LT_EQUAL,
+    OP_GT_EQUAL
     // Keep prefix operators down here:
 } ast_op_enum;
 
@@ -47,6 +54,7 @@ typedef enum AST_NODE_ENUM {
     A_FUNCTION_DECL,
     A_COMPOUND_STMT,
     A_RETURN_STMT,
+    A_IF_STMT,
     
     // Expressions:
     A_SYMBOL_REF,
@@ -167,6 +175,7 @@ ast_node_t ast_binary_op_init(ast_op_enum type, ast_node_t left, ast_node_t righ
 ast_node_t ast_ternary_op_init(ast_op_enum type, ast_node_t left, ast_node_t right);
 ast_node_t ast_compound_stmt_init(ast_node_vector statements, bool scope_flag);
 ast_node_t ast_return_stmt_init(ast_node_t expression);
+ast_node_t ast_if_stmt_init(ast_node_t condition, ast_node_t if_stmt, ast_node_t else_stmt);
 ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, char* identifier);
 ast_node_t ast_param_decl_init(type_info_t type_info, char* identifier);
 ast_node_t ast_func_decl_init(ast_node_t body, ast_node_vector parameters, type_info_t type_info, char* identifier);

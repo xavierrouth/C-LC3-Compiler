@@ -117,6 +117,13 @@ ast_node_t ast_return_stmt_init(ast_node_t expression) {
 }
 
 // TODO: For loop, if statement, decl_statement
+ast_node_t ast_if_stmt_init(ast_node_t condition, ast_node_t if_stmt, ast_node_t else_stmt) {
+    ast_node_t node = ast_node_init(A_IF_STMT);
+    ast_instances[node].as.stmt._if.condition = condition;
+    ast_instances[node].as.stmt._if.if_stmt = if_stmt;
+    ast_instances[node].as.stmt._if.else_stmt = else_stmt;
+    return node;
+}
 
 // -1 for no initializer
 ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, char* identifier) {
@@ -179,6 +186,7 @@ static const char* ast_type_to_str(ast_node_enum type) {
         case A_FUNCTION_CALL: return "A_FUNCTION_CALL";
         case A_UNARY_EXPR: return "A_UNOP_EXPR";
         case A_TERNARY_EXPR: return "A_TERNARY_EXPR";
+        case A_IF_STMT: return "A_IF_STMT";
     }
     return "ast to string unimlpemented";
 }
@@ -192,6 +200,12 @@ static const char* ast_op_to_str(ast_op_enum type) {
         case OP_NOT: return "!";
         case OP_DIV: return "/";
         case OP_MOD: return "%";
+        case OP_EQUALS: return "==";
+        case OP_GT: return ">";
+        case OP_NOTEQUALS: return "!=";
+        case OP_GT_EQUAL: return ">=";
+        case OP_LT_EQUAL: return "<=";
+        case OP_LT: return "<";
     }
     snprintf(print_buffer, 128, "%d", type);
     return print_buffer;
@@ -314,6 +328,11 @@ void ast_traversal(ast_node_t root, ast_node_visitor* visitor) {
                 ast_traversal(ast_instances[root].as.stmt.compound.statements.data[i], visitor);
             break;
         }
+        case A_IF_STMT: {
+            ast_traversal(ast_instances[root].as.stmt._if.condition, visitor);
+            ast_traversal(ast_instances[root].as.stmt._if.if_stmt, visitor);
+            ast_traversal(ast_instances[root].as.stmt._if.else_stmt, visitor);
+        }
         // Terminal nodes:
         case A_PARAM_DECL:
         case A_INTEGER_LITERAL:
@@ -434,6 +453,14 @@ void print_ast_node(ast_node_t node, int indentation) {
             return;
         }
         case A_RETURN_STMT: {
+            snprintf(print_buffer, 128,
+                "<node=%s, size=%d>\n", \
+                ast_type_to_str(ast_instances[node].type),
+                ast_instances[node].size);
+            printf_indent(indentation*3, print_buffer);
+            return;
+        }
+        case A_IF_STMT: {
             snprintf(print_buffer, 128,
                 "<node=%s, size=%d>\n", \
                 ast_type_to_str(ast_instances[node].type),
