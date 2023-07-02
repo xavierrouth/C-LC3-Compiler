@@ -1,6 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+extern char print_buffer[128];
+
 void printf_indent(int indent, char * string);
 
 #define CAT(a, b) a##b

@@ -33,8 +33,8 @@ static void emitf(const char* fmt, ...) {
 }
 
 // Just know for now that regfile is 8 registesr???/
-static int get_empty_reg() {
-    for (int i = 0; i < 8; i++) {
+static uint16_t get_empty_reg() {
+    for (uint16_t i = 0; i < 8; i++) {
         if (state.regfile[i] == UNUSED) {
             return i;
         }
@@ -43,60 +43,62 @@ static int get_empty_reg() {
     return -1; // Will j break I guess.
 }
 
-void emit_ast(ast_node_t* root) {
+void emit_ast(ast_node_t root) {
     emit_ast_node(root);
     return;
 } 
 
 // Sethi-Ullman Register Allocation for the expression rooted at this node.
-static int emit_expression_node(ast_node_t* node) {
+static int emit_expression_node(ast_node_t node_h) {
     // TODO: Add immediates.
-    if (node->type == A_BINOP_EXPR) {
-        switch (node->as.binary_op.type) {
+    struct AST_NODE_STRUCT node = ast_node_data(node_h);
+
+    if (node.type == A_BINARY_EXPR) {
+        switch (node.as.expr.binary.type) {
+            struct AST_NODE_STRUCT left = ast_node_data(node.as.expr.binary.left);
+            struct AST_NODE_STRUCT right = ast_node_data(node.as.expr.binary.right);
             case OP_ADD: {
-                int r1 = 0;
+                int32_t r1 = 0;
                 // we can only use one immediate though.
-                if (node->as.binary_op.left->type == A_INTEGER_LITERAL && \
-                    node->as.binary_op.left->as.literal.value <= 15) {
+                if (left.type == A_INTEGER_LITERAL && left.as.expr.literal.value <= 15) {
                     // If the leaf is an int literal, we can just use an immediate.
-                    r1 = emit_expression_node(node->as.binary_op.right);
-                    emitf("ADD R%d, R%d, #%d\n", r1, r1, node->as.binary_op.left->as.literal.value);
+                    r1 = emit_expression_node(node.as.expr.binary.right);
+                    emitf("ADD R%d, R%d, #%d\n", r1, r1, left.as.expr.literal.value);
                     state.regfile[r1] = USED;
                     
                 }
-                else if (node->as.binary_op.right->type == A_INTEGER_LITERAL && \
-                    node->as.binary_op.right->as.literal.value <= 15) {
-                    r1 = emit_expression_node(node->as.binary_op.left);
-                    int val = node->as.binary_op.right->as.literal.value;
+                else if (right.type == A_INTEGER_LITERAL && right.as.expr.literal.value <= 15) {
+                    r1 = emit_expression_node(node.as.expr.binary.left);
+                    int32_t val = right.as.expr.literal.value;
                     emitf("ADD R%d, R%d, #%d\n", r1, r1, val);
                     // TOOD: Only if the immediate is small enough
                     state.regfile[r1] = USED;
                 }
                 else {
-                    r1 = emit_expression_node(node->as.binary_op.left);
+                    r1 = emit_expression_node(node.as.expr.binary.left);
                     state.regfile[r1] = USED;
-                    int r2 = emit_expression_node(node->as.binary_op.right);
+                    int32_t r2 = emit_expression_node(node.as.expr.binary.right);
                     state.regfile[r2] = UNUSED;
                     emitf("ADD R%d, R%d, R%d\n", r1, r1, r2);
                 }
             return r1;
             }
             case OP_SUB: {
-                int r1 = 0;
+                int32_t r1 = 0;
                 // we can only use one immediate though.
                 // If the left side is literal, oh well we can't do anything about that???
-                if (node->as.binary_op.right->type == A_INTEGER_LITERAL) {
-                    r1 = emit_expression_node(node->as.binary_op.left);
-                    int val = -1 * node->as.binary_op.right->as.literal.value;
+                if (right.type == A_INTEGER_LITERAL) {
+                    r1 = emit_expression_node(node.as.expr.binary.left);
+                    int32_t val = -1 * right.as.expr.literal.value;
                     emitf("ADD R%d, R%d, #%d\n", r1, r1, val);
                     // TOOD: Only if the immediate is small enough
                     state.regfile[r1] = USED;
                 }
                 else {
                     // Otherwise the val is in a register somehow.
-                    r1 = emit_expression_node(node->as.binary_op.left);
+                    r1 = emit_expression_node(node.as.expr.binary.left);
                     state.regfile[r1] = USED;
-                    int r2 = emit_expression_node(node->as.binary_op.right);
+                    int32_t r2 = emit_expression_node(node.as.expr.binary.right);
                     emitf("NOT R%d, R%d\n", r2, r2);
                     emitf("ADD R%d, R%d, #1\n", r2, r2);
                     emitf("ADD R%d, R%d, R%d\n", r1, r1, r2);
@@ -106,15 +108,15 @@ static int emit_expression_node(ast_node_t* node) {
             }
         }
     }
-    else if (node->type == A_UNOP_EXPR) {
-        switch (node->as.unary_op.type) {
+    else if (node.type == A_UNARY_EXPR) {
+        switch (node.as.expr.unary.type) {
             case OP_ADD: {
                 // Litreally doens't do anything, just return 
-                return emit_expression_node(node->as.unary_op.child);
+                return emit_expression_node(node.as.expr.unary.child);
             }
             case OP_SUB: {
                 // Get the register that the child expression is in.
-                int r = emit_expression_node(node->as.unary_op.child);
+                int r = emit_expression_node(node.as.expr.unary.child);
                 // Negate it.
                 emitf("NOT R%d, R%d\n", r, r);
                 emitf("ADD R%d, R%d, #1\n", r, r);
@@ -122,29 +124,27 @@ static int emit_expression_node(ast_node_t* node) {
             }
         }
     }
-    else if (node->type == A_FUNCTION_CALL) {
-        node->as.func_call.symbol_ref;
-
+    else if (node.type == A_FUNCTION_CALL) {
         // Push arguments right to left.
-        for (int i = node->as.func_call.arguments.size - 1; i >= 0; i--) {
-            int r = emit_expression_node(node->as.func_call.arguments.data[i]);
+        for (int i = node.as.expr.call.arguments.size - 1; i >= 0; i--) {
+            int r = emit_expression_node(node.as.expr.call.arguments.data[i]);
             // Push r to stack, load next 
             emitf("ADD R6, R6, #-1\n");
             emitf("STR R%d, R6, #0 ; Push parameter to stack frame\n", r);
             emitf("\n");
         }
-        emitf("JSR %s\n\n", node->as.func_call.symbol_ref->as.symbol_ref.identifier);
+        emitf("JSR %s\n\n", ast_node_data(node.as.expr.call.symbol_ref).as.expr.symbol.identifier);
         int ret = get_empty_reg();
         // load 
         emitf("LDR R%d, R6, #0 ; Load the return value\n", ret);
         emitf("ADD R6, R6, #1 ; Pop return value\n");
-        emitf("ADD R6, R6, #%d ; Pop arguments\n", node->as.func_call.arguments.size);
+        emitf("ADD R6, R6, #%d ; Pop arguments\n", node.as.expr.call.arguments.size);
         return ret;
     }
-    else if (node->type == A_INTEGER_LITERAL) {
+    else if (node.type == A_INTEGER_LITERAL) {
         // We probably just want to place this in a constant pool and load from there.
         // Get a register to place this in
-        int val = node->as.literal.value;
+        int val = node.as.expr.literal.value;
         // TODO: If val is > 15 then we have to materialize this int somehow.
         int r1 = get_empty_reg();
         emitf("AND R%d, R%d, x0000\n", r1, r1);
@@ -154,9 +154,9 @@ static int emit_expression_node(ast_node_t* node) {
         state.regfile[r1] = USED;
         return r1;
     }
-    else if (node->type == A_SYMBOL_REF) {
+    else if (node.type == A_SYMBOL_REF) {
         // Do now
-        symtable_entry* sym_data = symtable_search(node->as.symbol_ref.scope, node->as.symbol_ref.identifier);
+        symtable_entry* sym_data = symtable_search(node.as.expr.symbol.scope, node.as.expr.symbol.identifier);
         // Load 
         // Parameters need a positive offset??
         int offset = sym_data->offset;
@@ -177,18 +177,21 @@ static int emit_expression_node(ast_node_t* node) {
     
 }
 
-void emit_ast_node(ast_node_t* node) {
-    if (node == NULL) {
+void emit_ast_node(ast_node_t node_h) {
+    if (node_h == -1) {
         return;
     }
-    switch (node->type) {
+
+    struct AST_NODE_STRUCT node = ast_node_data(node_h);
+
+    switch (node.type) {
         case A_PROGRAM: {
             emitf(".ORIG x3000\n");
             
             emitf("LD R6, USER_STACK\n"); // start the stack pointer at the end of user space
             emitf("JSR main\n");
-            for (int i = 0; i < (node->as.program.body.size); i++)
-                emit_ast_node(node->as.program.body.data[i]);
+            for (int i = 0; i < (node.as.program.body.size); i++)
+                emit_ast_node(node.as.program.body.data[i]);
             emitf("HALT\n");
             emitf("USER_STACK .FILL xFDFF\n");
             emitf(".END\n");
@@ -200,8 +203,9 @@ void emit_ast_node(ast_node_t* node) {
             // using 
             // This requires a symbol ref. We can't do those yet.
             // This means store.
-            int reg = emit_expression_node(node->as.assign_expr.right);
-            symtable_entry* sym_data = symtable_search(node->as.assign_expr.left->as.symbol_ref.scope, node->as.assign_expr.left->as.symbol_ref.identifier);
+            int reg = emit_expression_node(node.as.expr.assign.right);
+            //TODO:
+            symtable_entry* sym_data = NULL; // symtable_search(node.as.expr.assign.left->as.symbol_ref.scope, node.as.expr.assign.left->as.symbol_ref.identifier);
             
             emitf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, sym_data->offset);
             state.regfile[reg] = UNUSED;
@@ -214,7 +218,7 @@ void emit_ast_node(ast_node_t* node) {
             // Load the child into R0
             // Check if its already in R0???
             // No optimizations yet.
-            int reg = emit_expression_node(node->as.return_stmt.expression);
+            int reg = emit_expression_node(node.as.stmt._return.expression);
             // Write it into return value slot, which 
             emitf("\n");
             emitf("STR R%d, R5, #3 ; Write return value, always R5 + 3\n", reg);
@@ -222,8 +226,8 @@ void emit_ast_node(ast_node_t* node) {
             return;
         }
         case A_COMPOUND_STMT: {
-            for (int i = 0; i < (node->as.compound_stmt.statements.size); i++)
-                emit_ast_node(node->as.compound_stmt.statements.data[i]);
+            for (int i = 0; i < (node.as.stmt.compound.statements.size); i++)
+                emit_ast_node(node.as.stmt.compound.statements.data[i]);
             break;
         }
         case A_FUNCTION_DECL: {
@@ -233,8 +237,8 @@ void emit_ast_node(ast_node_t* node) {
             state.regfile[3] = UNUSED;
             // Callee save registers:
             emitf("\n");
-            emitf("; Begin function %s:\n", node->as.func_decl.identifier);
-            emitf("%s\n", node->as.func_decl.identifier);
+            emitf("; Begin function %s:\n", node.as.func_decl.identifier);
+            emitf("%s\n", node.as.func_decl.identifier);
             emitf("; Callee Setup: \n");
             emitf("ADD R6, R6, #-1 ; Allocate spot for the return value\n");
             emitf("\n");
@@ -247,7 +251,7 @@ void emit_ast_node(ast_node_t* node) {
             emitf("ADD R5, R6, #-1 ; Set frame pointer for function\n");
             emitf("\n");
             emitf("; Perform work for function: \n");
-            emit_ast_node(node->as.func_decl.body);
+            emit_ast_node(node.as.func_decl.body);
             emitf("; Callee Teardown: \n");
             emitf("ADD R6, R5, #1 ; Pop local variables\n");
             emitf("\n");
@@ -257,7 +261,7 @@ void emit_ast_node(ast_node_t* node) {
             emitf("LDR R7, R6, #0 ; Pop the return address\n");
             emitf("ADD R6, R6, #1\n");
             emitf("RET\n");
-            emitf("; End function %s\n", node->as.func_decl.identifier);
+            emitf("; End function %s\n", node.as.func_decl.identifier);
             emitf("\n");
             break;
         }
@@ -267,36 +271,34 @@ void emit_ast_node(ast_node_t* node) {
             // as they are declared in the program.
             // Global data section is at address x5000
             // Global variable
-            if (node->as.var_decl.scope == 0) {
-                emitf("%s .FILL x0000\n", node->as.var_decl.identifier);
+            if (node.as.var_decl.scope == 0) {
+                emitf("%s .FILL x0000\n", node.as.var_decl.identifier);
                 // No initializer.
                 return;
             }
             
             
-            // Local Variable, but not a parameter.
-            // Check current scope:
-            if (!node->as.var_decl.is_parameter) {
-                // allocate space for local variable
-                emitf("ADD R6, R6, #-1 ; Allocate space for \"%s\"\n", node->as.var_decl.identifier);
-                if (node->as.var_decl.initializer != NULL) {
-                    // TOOD: Assignment nodes should not really be separate, there should be an assignemnt expression.
-                    // But for now, we can kepe initialization separate, as for static ints it works different I suppose
-                    // Load a reg with the initializer value
-                    int reg = emit_expression_node(node->as.var_decl.initializer);
-                    symtable_entry* sym_data = symtable_search(node->as.var_decl.scope, node->as.var_decl.identifier);
-                    
-                    emitf("STR R%d, R5, #%d ; Initialize variable\n\n", reg, sym_data->offset);
-                    state.regfile[reg] = UNUSED;
-                }
-                return;
+            // Local Variable, 
+            // allocate space for local variable
+            emitf("ADD R6, R6, #-1 ; Allocate space for \"%s\"\n", node.as.var_decl.identifier);
+            if (node.as.var_decl.initializer != NULL) {
+                // TOOD: Assignment nodes should not really be separate, there should be an assignemnt expression.
+                // But for now, we can kepe initialization separate, as for static ints it works different I suppose
+                // Load a reg with the initializer value
+                int reg = emit_expression_node(node.as.var_decl.initializer);
+                symtable_entry* sym_data = symtable_search(node.as.var_decl.scope, node.as.var_decl.identifier);
+                
+                emitf("STR R%d, R5, #%d ; Initialize variable\n\n", reg, sym_data->offset);
+                state.regfile[reg] = UNUSED;
             }
+            return;
+            
 
-           
-        case A_BINOP_EXPR: 
+        case A_UNARY_EXPR:
+        case A_BINARY_EXPR: 
         case A_INTEGER_LITERAL: 
         case A_SYMBOL_REF: 
-            emit_expression_node(node);
+            emit_expression_node(node_h);
             return;
         
     }

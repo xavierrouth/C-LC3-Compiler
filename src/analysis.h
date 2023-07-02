@@ -6,6 +6,6 @@
 #include "AST.h"
 #include "types.h"
 
-void analysis(ast_node_t* root);
+void analysis(ast_node_t root);
 
 #endif

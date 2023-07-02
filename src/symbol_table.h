@@ -15,6 +15,7 @@ typedef struct SYMBOL_TABLE_ENTRY_STRUCT {
         VARIABLE,
         FUNCTION
     } type;
+    int table; // Index into the symbol table (metadata, can find vars of same scope).
     // These should all be negative as stack grows down.
 } symtable_entry;
 
@@ -42,6 +43,8 @@ extern symtable_vector symtable_root;
 void symtable_root_init(); 
 
 int symtable_get_parent(int scope);
+
+void symtable_root_free();
 
 // Initialize a subtable
 int symtable_branch_init(int parent, char* name); 

@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include "util.h"
 
+char print_buffer[128];
+
 void printf_indent(int indent, char * string)
 {
     printf("%*s%s", indent, "", string);
 }
+
+
 
 /**
 void pretty_printf_indent_tree(char* indent_string, char branch_char, char* string) {

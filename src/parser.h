@@ -25,7 +25,7 @@ typedef struct PARSER_STRUCT {
     bool error_mode; // Todo: make this into a struct with different error options. 
     // Symbol table
     // Type table
-    ast_node_t* ast_root;
+    ast_node_t ast_root;
 } parser_t;
 
 typedef enum PARSER_ERROR_ENUM {
@@ -44,6 +44,6 @@ void init_parser(bool error_mode);
 
 void build_ast();
 
-ast_node_t* get_root();
+ast_node_t get_root();
 
 #endif

@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
 
     printf("Done Building AST\n");
 
-    ast_node_t* root = get_root();    
+    ast_node_t root = get_root();    
 
     /**
     for (int i = 0; i < 5; i++) {
@@ -71,11 +71,12 @@ int main(int argc, char **argv) {
     */
 
     print_ast(root);
-    symtable_root_init();
-    analysis(root);
-    printf("Beginning Code gen:\n");
-    emit_ast(root);
+    //symtable_root_init();
+    //analysis(root);
+    //printf("Beginning Code gen:\n");
+    //emit_ast(root);
     free_ast(root);
+    //symtable_root_free();
 
     close_out_file();
 

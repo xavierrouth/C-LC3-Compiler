@@ -10,12 +10,14 @@ int symtable_branch_init(int parent, char* name) {
     table.symbols = symbol_vector_init(16);
     table.offset = 0;
     table.parent = parent;
+    table.name = name;
     symtable_vector_push(&symtable_root, table);
     return symtable_root.size - 1;
 }
 
 void symtable_root_init() {
     // Initialize the root symbol table.
+    symtable_root = symtable_vector_init(8);
     symtable_branch_init(-1, "global_table"); // Should return 0;
     return;
 }
