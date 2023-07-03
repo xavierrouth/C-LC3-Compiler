@@ -30,7 +30,7 @@ static MunitResult test_helper(const ast_node_enum* nodes_gold, int gold_size, c
     int i = 0;
 
     init_lexer(file_buffer, fsize);
-    init_parser(false);
+    init_parser(file_buffer, fsize);
     build_ast();
     ast_node_t root = get_root();
     if (debug) {

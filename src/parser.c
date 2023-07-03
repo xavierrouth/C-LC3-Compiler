@@ -13,6 +13,30 @@
 static parser_t Parser; // Initialized to 0
 
 /** ==================================================
+ * Parser Errors:
+ * =================================================== */
+
+static void print_error(parser_error_t error) {
+    
+    switch (error.type) {
+        case ERROR_MISSING_SEMICOLON: {
+            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected semicolon.\n");
+            print_line(Parser.error_handler.prev_token.debug_info.row, Parser.source, Parser.source_size);
+            size_t len = strlen("Line 2: ") + 1;
+            printf_indent(Parser.error_handler.prev_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            return;
+        }
+        default: {
+            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Something is wrong!.\n");
+            print_line(Parser.error_handler.prev_token.debug_info.row, Parser.source, Parser.source_size);
+            size_t len = strlen("Line 2: ") + 1;
+            printf_indent(Parser.error_handler.prev_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            return;
+        }
+    }
+    
+}
+/** ==================================================
  * Token stream interaction:
  * =================================================== */
 
@@ -20,10 +44,18 @@ static parser_t Parser; // Initialized to 0
 static token_t next_token() 
 {
     token_t token;
-    if (Parser.putback_idx > 0)
-        return Parser.putback_stack[--Parser.putback_idx];
+    if (Parser.putback_idx > 0) {
+        token = Parser.putback_stack[--Parser.putback_idx];
+        // If its putback, then don't update the prev token.
+    }
+    else {
+        token = get_token();
+        Parser.error_handler.prev_token = Parser.error_handler.curr_token;
+    }
+    // This is messy:
+    Parser.error_handler.curr_token = token;
     
-    return get_token();
+    return token;
 }
 
 // Do we need to allow for multiple token putback?
@@ -45,15 +77,10 @@ static token_t peek_token() {
 
 /* Look ahead at the next token, and return whether it is of a certain type.
 This does not consume the token*/
-static bool expect_token(token_enum type, bool print_error) {
+static bool expect_token(token_enum type) {
     token_t t = next_token();
 
     if (t.kind != type) {
-        if (print_error == true) {
-            if (type == T_SEMICOLON) {
-                printf("Expected semicolon at end of line %d.\n", t.debug_info.row);
-            }
-        }
         putback_token(t);
         return false;
     }
@@ -69,14 +96,27 @@ static token_t eat_token(token_enum type)
 {
     token_t t = next_token();
     if (t.kind != type) {
-        print_token(&t);
         if (type == T_SEMICOLON) {
-            printf("Expected semicolon at end of line %d.\n", t.debug_info.row);
+            parser_error_t error = {
+                .invalid_token = t,
+                .prev_token = Parser.error_handler.prev_token,
+                .type = ERROR_MISSING_SEMICOLON
+            };
+            print_error(error);
         }
         else {
-            printf("Error: Eat Token Unexpected token encountered.\n");
+            parser_error_t error = {
+                .invalid_token = t,
+                .prev_token = Parser.error_handler.prev_token,
+                .type = ERROR_GENERAL
+            };
+            print_error(error);
+            
             t.kind = T_INVALID;
         }
+        Parser.error_handler.abort = true;
+        return t;
+        
     }
     return t;
 }
@@ -128,6 +168,8 @@ static ast_op_enum token_type_to_op(const token_enum type) {
         case T_GT: return OP_GT;
         case T_LT_EQUAL: return OP_LT_EQUAL;
         case T_GT_EQUAL: return OP_GT_EQUAL;
+        default:
+            return -1;
     }
     return -1;
 }
@@ -227,7 +269,7 @@ static ast_node_t parse_function_call(ast_node_t symbol_ref) {
     while (true) {
         ast_node_t arg = parse_expression(0);
         ast_node_vector_push(&(arguments), arg);
-        if (!expect_token(T_COMMA, false)) {
+        if (!expect_token(T_COMMA)) {
             // Error Here:
             break;
         }
@@ -246,7 +288,7 @@ static ast_node_t parse_symbol_ref() {
     ast_node_t symbol = ast_expr_symbol_init(id.contents, 0);
 
     // Function Call
-    if (expect_token(T_LPAREN, false)) {
+    if (expect_token(T_LPAREN)) {
         ast_node_t func = parse_function_call(symbol); // Eats parens.
         return func;
     }
@@ -268,12 +310,12 @@ static ast_node_t parse_expression(int binding_power) {
     token_t op_token = peek_token();
     ast_op_enum op_type = token_type_to_op(op_token.kind);
 
-    if (expect_token(T_INTLITERAL, false))
+    if (expect_token(T_INTLITERAL))
         left = parse_int_literal();
-    else if (expect_token(T_IDENTIFIER, false)) {
+    else if (expect_token(T_IDENTIFIER)) {
         left = parse_symbol_ref();
     }
-    else if (expect_token(T_LPAREN, false)) {
+    else if (expect_token(T_LPAREN)) {
         eat_token(T_LPAREN);
         left = parse_expression(0);
         eat_token(T_RPAREN);
@@ -291,13 +333,13 @@ static ast_node_t parse_expression(int binding_power) {
     /** Consume tokens until there is a token whose binding power is equal or lower than rbp*/
     while (true) {
         // These are things that definetly mark the end of an expression.
-        if (expect_token(T_SEMICOLON, false) || expect_token(T_RPAREN, false)) {
+        if (expect_token(T_SEMICOLON) || expect_token(T_RPAREN)) {
             break;
         }
         // These actually can be in expressions, just need to know that if its an expression inside of a function call,
         // need to differentiate between comma tokens as the operator and comma tokens as the separator. 
         // TODO: Support comma operators
-        else if(expect_token(T_COMMA, false)) {
+        else if(expect_token(T_COMMA)) {
             break;
         }
         
@@ -340,7 +382,7 @@ static ast_node_t parse_if_statement() {
     ast_node_t else_stmt = -1;
     eat_token(T_RPAREN);
 
-    if (expect_token(T_LBRACE, false)) {
+    if (expect_token(T_LBRACE)) {
         if_stmt = parse_compound_statement();
     }
     else {
@@ -349,9 +391,9 @@ static ast_node_t parse_if_statement() {
         eat_token(T_SEMICOLON);
     }
     // Else part
-    if (expect_token(T_ELSE, false)) {
+    if (expect_token(T_ELSE)) {
         eat_token(T_ELSE);
-        if (expect_token(T_LBRACE, false)) {
+        if (expect_token(T_LBRACE)) {
             else_stmt = parse_compound_statement();
         }
         else {
@@ -366,14 +408,17 @@ static ast_node_t parse_if_statement() {
 // Parse a statement that is in a function.
 static ast_node_t parse_statement() {
     // TODO: Error checks:
+    if (Parser.error_handler.abort) {
+        return -1;
+    }
     // Attempt statement 
-    if (expect_token(T_RETURN, false)) {
+    if (expect_token(T_RETURN)) {
         return parse_return_statement();
     }
     //else if (expect_token(T_SWITCH)) {
     //    return a
     //}
-    else if (expect_token(T_IF, false)) {
+    else if (expect_token(T_IF)) {
         return parse_if_statement();
     }
 
@@ -381,7 +426,7 @@ static ast_node_t parse_statement() {
     type_info_t type_info = parse_declaration_specifiers(); 
 
     if (type_info.type != NOTYPE) {
-        if (expect_token(T_IDENTIFIER, false)) {
+        if (expect_token(T_IDENTIFIER)) {
             token_t id_token = eat_token(T_IDENTIFIER);
             return parse_var_declaration(id_token, type_info); // This eats semicolon
         }
@@ -397,13 +442,7 @@ static ast_node_t parse_statement() {
 static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info) {
 
     // TODO: Implement multiple variable initialization.
-    
-    if (expect_token(T_SEMICOLON, false)) {
-        eat_token(T_SEMICOLON); 
-        ast_node_t node = ast_var_decl_init(-1, type_info, id_token.contents);
-        return node;
-    }
-    else if (expect_token(T_ASSIGN, false)) {
+    if (expect_token(T_ASSIGN)) {
         eat_token(T_ASSIGN);
         // Parse variable initialization definition
         ast_node_t initializer = parse_expression(0);
@@ -411,10 +450,11 @@ static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info)
         ast_node_t node = ast_var_decl_init(initializer, type_info, id_token.contents);
         return node;
     }
-
-    // TODO: Error:
-    errorf("Expecting variable declaration.\n");
-    return -1;
+    else {
+        eat_token(T_SEMICOLON); 
+        ast_node_t node = ast_var_decl_init(-1, type_info, id_token.contents);
+        return node;
+    }
 }
 
 static ast_node_t parse_compound_statement() {    
@@ -423,11 +463,12 @@ static ast_node_t parse_compound_statement() {
     ast_node_vector statements = ast_node_vector_init(16);
     while(true) {
         ast_node_t stmt = parse_statement();
-        if (stmt == -1) {
-            break;
+        if (Parser.error_handler.abort) {
+            ast_node_vector_free(statements);
+            return -1;
         }
         ast_node_vector_push(&(statements), stmt);
-        if (expect_token(T_RBRACE, false)) {
+        if (expect_token(T_RBRACE)) {
             break;
         }
     }
@@ -440,7 +481,10 @@ static ast_node_t parse_compound_statement() {
 
 static ast_node_t parse_declaration() {
     // Function definition or declaration
-    if (expect_token(T_END, false)) {
+    if (Parser.error_handler.abort) {
+        return -1;
+    }
+    if (expect_token(T_END)) {
         eat_token(T_END);
         return -1;
     }
@@ -450,7 +494,7 @@ static ast_node_t parse_declaration() {
 
     type_info_t type_info = parse_declaration_specifiers();
 
-    if (expect_token(T_MUL, false)) {
+    if (expect_token(T_MUL)) {
         eat_token(T_MUL);
         type_info.is_pointer = true;
     }
@@ -458,6 +502,7 @@ static ast_node_t parse_declaration() {
     // We always need an identifier here:
     // If not, we need to do error handling somehow.
     // For now, store error in the token type.
+
     token_t id_token = eat_token(T_IDENTIFIER);
     if (id_token.kind == T_INVALID) {
         printf("Invalid token encountered, aborting AST building.\n");
@@ -468,14 +513,14 @@ static ast_node_t parse_declaration() {
     // Function Declaration:
     
     // Function Declaration:
-    if (expect_token(T_LPAREN, false)) {
+    if (expect_token(T_LPAREN)) {
         ast_node_t node; // Unintiialized.
         eat_token(T_LPAREN);
         // Parse function declaration
         ast_node_vector parameters = ast_node_vector_init(6);
 
         // While the next token isn't a Rparen, parse parameters
-        while (!expect_token(T_RPAREN, false)) {
+        while (!expect_token(T_RPAREN)) {
             // Expect a type (int only for now)
             eat_token(T_INT);
             type_info_t param_type_info = {0};
@@ -488,7 +533,7 @@ static ast_node_t parse_declaration() {
             ast_node_vector_push(&(parameters), parameter);
             // Expect a comma maybe
             // If there isn't a comma, then break.
-            if (!expect_token(T_COMMA, false))
+            if (!expect_token(T_COMMA))
                 break;
             eat_token(T_COMMA);
         } // Done parsing parameters.
@@ -496,7 +541,7 @@ static ast_node_t parse_declaration() {
         eat_token(T_RPAREN);
 
         // Function without a body.
-        if (expect_token(T_SEMICOLON, false)) {
+        if (expect_token(T_SEMICOLON)) {
             // Body is unitiliazed.
             // TODO: Functions withouts bodies are not supported yet.
             // ie definitions but not declarations
@@ -504,7 +549,7 @@ static ast_node_t parse_declaration() {
             return -1;
         }
         // Function with a body.
-        else if (expect_token(T_LBRACE, false)){
+        else if (expect_token(T_LBRACE)){
 
             ast_node_t body = parse_compound_statement();
             node = ast_func_decl_init(body, parameters, type_info, id_token.contents);
@@ -552,9 +597,10 @@ void teardown_ast() {
     return;
 }
 
-void init_parser(bool error_mode) {
+void init_parser(const char* source, uint32_t source_size) {
     Parser.ast_root = -1;
-    Parser.error_mode = error_mode;
+    Parser.source = source;
+    Parser.source_size = source_size;
     init_binding_power();
     return;
 }

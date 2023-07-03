@@ -5,6 +5,7 @@
 
 extern symtable_vector symtable_root;
  
+// TODO: Move this into visitor,
 static void analyze_node(ast_node_t root, int scope) {
     //visitor_begin(visitor, root);
     if(root == -1)
@@ -33,6 +34,12 @@ static void analyze_node(ast_node_t root, int scope) {
             symbol_vector_push(&(symtable_root.data[scope].symbols), var_decl);
             analyze_node(n.as.var_decl.initializer, scope);
             break;
+        }
+        case A_PARAM_DECL: {
+            n.as.param_decl.scope = scope;
+            symtable_entry param_decl = {0};
+            param_decl.identifier = n.as.param_decl.identifier;
+            param_decl.size = 1;
         }
         case A_BINARY_EXPR: {
             analyze_node(n.as.expr.binary.left, scope);
@@ -100,8 +107,13 @@ static void analyze_node(ast_node_t root, int scope) {
             // TODO: Search the current scope to make sure this variable exists.
             n.as.expr.symbol.scope = scope;
             break;
+        case A_IF_STMT:
+            analyze_node(n.as.stmt._if.condition, scope);
+            analyze_node(n.as.stmt._if.else_stmt, scope);  
+            analyze_node(n.as.stmt._if.if_stmt, scope);
+            break;
         default:
-            printf("Error: Traversal Unimplemented for this Node type");
+            printf("Error: Analysis traversal Unimplemented for this Node type");
             break;
     }
 }

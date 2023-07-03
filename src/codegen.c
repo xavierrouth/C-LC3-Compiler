@@ -265,6 +265,9 @@ void emit_ast_node(ast_node_t node_h) {
             emitf("\n");
             break;
         }
+        case A_PARAM_DECL: 
+            // Don't do anything.
+            break;
         case A_VAR_DECL:
             // Is global scope
             // We will have a global data section, instead of placing them in the same order

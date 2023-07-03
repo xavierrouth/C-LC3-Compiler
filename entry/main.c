@@ -37,14 +37,13 @@ int main(int argc, char **argv) {
     token_t t = get_token();
     while(t.kind != T_END) {
         t = get_token();
-        print_token(&t);
+        //print_token(&t);
     }
 
     init_lexer(file_buffer, fsize);
 
     printf("Done Lexering\n");
-
-    init_parser(true);
+    init_parser(file_buffer, fsize);
     printf("Done Init Parser\n");
     build_ast();
 
@@ -71,12 +70,12 @@ int main(int argc, char **argv) {
     */
 
     print_ast(root);
-    //symtable_root_init();
-    //analysis(root);
-    //printf("Beginning Code gen:\n");
-    //emit_ast(root);
+    symtable_root_init();
+    analysis(root);
+    printf("Beginning Code gen:\n");
+    emit_ast(root);
     free_ast(root);
-    //symtable_root_free();
+    symtable_root_free();
 
     close_out_file();
 
