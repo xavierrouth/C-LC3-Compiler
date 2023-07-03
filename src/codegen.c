@@ -69,7 +69,7 @@ static int emit_expression_node(ast_node_t node_h) {
                 //struct AST_NODE_STRUCT child = ast_node_data(node.as.)
                 symbol_table_entry_t symbol = symbol_table_search(symbol_ref_scopes[node.as.expr.binary.left], left.as.expr.symbol.identifier);
             
-                emitf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, symbol.offset);
+                emitf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, -1 * symbol.offset);
                 state.regfile[reg] = UNUSED;
                 return reg;
             }
@@ -195,7 +195,7 @@ static int emit_expression_node(ast_node_t node_h) {
             emitf("LDR R%d, R5, #%d ; Load parameter \"%s\"\n", r1, symbol.offset + 4, symbol.identifier);
         }
         else { // Not a parameter
-            emitf("LDR R%d, R5, #%d ; Load local variable \"%s\"\n", r1, symbol.offset, symbol.identifier);
+            emitf("LDR R%d, R5, #%d ; Load local variable \"%s\"\n", r1, -1 * symbol.offset, symbol.identifier);
         }
         return r1;
     }
@@ -255,7 +255,7 @@ void emit_ast_node(ast_node_t node_h) {
             // Test the condition code
             // TODO: Else statement.
             emitf("AND R%d, R%d, R%d ; Load reg value into NZP\n", r_condition, r_condition, r_condition);
-            emitf(r_condition);
+            //emitf(r_condition);
             emitf("BRnz if_stmt%d_end ; Take branch if condition is false\n", if_counter);
             emit_ast_node(node.as.stmt._if.if_stmt);
             emitf("if_stmt%d_end\n", if_counter++);
@@ -366,7 +366,7 @@ void emit_ast_node(ast_node_t node_h) {
             }
             return;
             
-
+        case A_FUNCTION_CALL:
         case A_UNARY_EXPR:
         case A_BINARY_EXPR: 
         case A_INTEGER_LITERAL: 
