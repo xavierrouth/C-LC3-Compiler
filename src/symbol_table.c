@@ -1,44 +1,69 @@
-#include "symbol_table.h"
 #include <string.h>
+#include <stdio.h>
 
-// Array implementation of parent-pointer tree.
-// This holds the memory allocated for our symbol table.
-symtable_vector symtable_root;
+#include "symbol_table.h"
 
-int symtable_branch_init(int parent, char* name) {
-    symtable_t table;
-    table.symbols = symbol_vector_init(16);
-    table.offset = 0;
-    table.parent = parent;
-    table.name = name;
-    symtable_vector_push(&symtable_root, table);
-    return symtable_root.size - 1;
-}
 
-void symtable_root_init() {
-    // Initialize the root symbol table.
-    symtable_root = symtable_vector_init(8);
-    symtable_branch_init(-1, "global_table"); // Should return 0;
-    return;
-}
+symbol_table_entry_t symbol_table[SYMBOL_TABLE_MAX_SIZE];
+bool symbol_table_live[SYMBOL_TABLE_MAX_SIZE];
 
-void symtable_root_free() {
-    for (int i = 0; i < symtable_root.size; i++) {
-        symbol_vector_free(symtable_root.data[i].symbols);
-    }
-    symtable_vector_free(symtable_root);
-}
+// Parent pointers:
+int32_t parent_scope[SYMBOL_TABLE_MAX_SIZE];
 
-int symtable_get_parent(int scope) {
-    return symtable_root.data[scope].parent;
-}
+symbol_table_entry_t symbol_table_search(int32_t scope, char* identifier) {
+    for (int i = 0; i < SYMBOL_TABLE_MAX_SIZE; i++) {
+        // Match characterisitcs from easiest to hardest
+        if (!symbol_table_live[i]) {
+            continue;
+        }
+        symbol_table_entry_t entry = symbol_table[i];
+        if (scope != entry.scope)
+            continue;
 
-symtable_entry* symtable_search(int branch, char* identifier) {
-    for (int i = 0; i < symtable_root.data[branch].symbols.size; i++) {
-        if (!strcmp(identifier, symtable_root.data[branch].symbols.data[i].identifier)) {
-            return &(symtable_root.data[branch].symbols.data[i]);
+        if (!strcmp(identifier, entry.identifier)) {
+            return entry;
         }
     }
     // Recurse up, return the first match.
-    return symtable_search(symtable_root.data[branch].parent, identifier);
+    if (scope != 0) {
+        // Parent pointer.
+        return symbol_table_search(parent_scope[scope], identifier);
+    } 
+    symbol_table_entry_t invalid = {0};
+    // TODO: Error:
+    printf("Could not find identifier.\n");
+    return invalid;
+}
+
+void symbol_table_add(char* identifier, type_info_t return_type, int32_t type, int32_t size, int32_t offset, int32_t scope) {
+    static int32_t idx = 0;
+    
+    symbol_table_entry_t new_entry = {
+        .identifier = identifier, 
+        .type_info = return_type,
+        .type = type,
+        .size = size,
+        .offset = offset,
+        .scope = scope };
+
+    // Just search the current scope.
+    for (int i = 0; i < SYMBOL_TABLE_MAX_SIZE; i++) {
+        // Match characterisitcs from easiest to hardest
+        if (!symbol_table_live[i]) {
+            continue;
+        }
+        symbol_table_entry_t search_entry = symbol_table[i];
+        if (new_entry.scope != search_entry.scope)
+            continue;
+
+        if (!strcmp(new_entry.identifier, search_entry.identifier)) {
+            // Error, variable already decalred.
+            printf("Error: symbol %s already declared\n", new_entry.identifier);
+            return;
+        }
+    }
+    symbol_table_live[idx] = true;
+    symbol_table[idx++] = new_entry;
+    return;
+
 }

@@ -2,6 +2,7 @@
 #include "token.h"
 #include "util.h"
 #include "symbol_table.h"
+#include "analysis.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -63,10 +64,10 @@ ast_node_t ast_expr_call_init(ast_node_t symbol_ref, ast_node_vector arguments) 
     return node;
 }
 
-ast_node_t ast_expr_symbol_init(char* identifier, int scope) {
+ast_node_t ast_expr_symbol_init(char* identifier) {
     ast_node_t node = ast_node_init(A_SYMBOL_REF);
     ast_instances[node].as.expr.symbol.identifier = identifier;
-    ast_instances[node].as.expr.symbol.scope = scope;
+    //ast_instances[node].as.expr.symbol.scope = scope;
     // Why does a symbol reference have a type??
     //ast_instances[node].as.expr.symbol.type = type;
     return node;
@@ -167,6 +168,7 @@ ast_op_enum token_to_op(token_enum type) {
         case T_COMMA: return OP_COMMA;
         //case T_NOT: return OP_NOT;
         case T_DIV: return OP_DIV;
+        case T_ASSIGN: return OP_ASSIGN;
         default: return OP_INVALID;
     }
 }
@@ -206,6 +208,7 @@ static const char* ast_op_to_str(ast_op_enum type) {
         case OP_GT_EQUAL: return ">=";
         case OP_LT_EQUAL: return "<=";
         case OP_LT: return "<";
+        case OP_ASSIGN: return "=";
     }
     snprintf(print_buffer, 128, "%d", type);
     return print_buffer;
@@ -235,6 +238,12 @@ static ast_node_visitor visitor_check_init() {
     return visitor;
 }
 
+static ast_node_visitor visitor_analysis_init() {
+    ast_node_visitor visitor;
+    visitor.visitor_type = ANALYSIS;
+    visitor.traversal_type = PREORDER;
+    return visitor;
+}
 
 // print_ast_node 
 
@@ -252,6 +261,10 @@ static void visitor_call(ast_node_t node, ast_node_visitor* visitor) {
             visitor->as.check_ast.results[visitor->as.check_ast.index++] = ast_instances[node].type;
             return;
         }
+        case ANALYSIS: {
+            analyze_ast_node(node);
+            return;
+        }
     }
 }
 
@@ -261,6 +274,7 @@ static void visitor_begin(ast_node_t node, ast_node_visitor* visitor) {
             visitor->as.print_ast.indentation++;
             return;
         }
+        
     }
 }
 
@@ -269,6 +283,10 @@ static void visitor_end(ast_node_t node, ast_node_visitor* visitor) {
     switch (visitor->visitor_type) {
         case PRINT_AST: {
             visitor->as.print_ast.indentation--;
+            return;
+        }
+        case ANALYSIS: {
+            analysis_exit_ast_node(node);
             return;
         }
     }
@@ -369,7 +387,13 @@ void check_ast(ast_node_t root, ast_node_enum* results) {
     return;
 }
 
-void print_ast_node(ast_node_t node, int indentation) {
+void analysis(ast_node_t root) {
+    ast_node_visitor visitor = visitor_analysis_init();
+    ast_traversal(root, &visitor);
+    return;
+}
+
+void print_ast_node(ast_node_t node, uint32_t indentation) {
     switch (ast_instances[node].type) {
         case A_PROGRAM: {
             snprintf(print_buffer, 128, 

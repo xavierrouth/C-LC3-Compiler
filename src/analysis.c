@@ -3,114 +3,95 @@
 
 #include <string.h>
 
-extern symtable_vector symtable_root;
- 
-// TODO: Move this into visitor,
-static void analyze_node(ast_node_t root, int scope) {
-    //visitor_begin(visitor, root);
-    if(root == -1)
+extern int32_t parent_scope[];
+
+static int32_t scope_stack[8];
+static int32_t scope_stack_idx;
+
+static int32_t var_offsets[100];
+static int32_t param_offsets[100];
+
+int32_t symbol_ref_scopes[100];
+int32_t var_decl_scopes[100];
+
+static int32_t new_scope() {
+    static int32_t i = 0;
+    return ++i;
+}
+
+static int32_t curr_scope() {
+    return scope_stack[scope_stack_idx];
+}
+
+static void enter_scope() {
+    // TODO: Error checking.
+    int32_t new = new_scope(); 
+    parent_scope[new] = curr_scope();
+    scope_stack[++scope_stack_idx] = new;
+}
+
+static void exit_scope() {
+    scope_stack_idx--;
+}
+
+void analysis_exit_ast_node(ast_node_t root) {
+    struct AST_NODE_STRUCT node = ast_node_data(root);
+    switch(node.type) {      
+        case A_COMPOUND_STMT: {
+            if (node.as.stmt.compound.scope_flag == NEWSCOPE) {
+                exit_scope();
+            }
+        }
+        break;
+        case A_FUNCTION_DECL: {
+            exit_scope();
+        }
+        break;
+    }
+}
+
+void analyze_ast_node(ast_node_t node_h) {
+    if(node_h == -1)
         return;
 
-    struct AST_NODE_STRUCT n = ast_node_data(root);
+    struct AST_NODE_STRUCT node = ast_node_data(node_h);
 
     // Traverse to the children.
-    switch(n.type) {      
-        case A_PROGRAM: {
-            for (int i = 0; i < (n.as.program.body.size); i++)
-                analyze_node(n.as.program.body.data[i], scope);
+    switch(node.type) {      
+        case A_COMPOUND_STMT: {
+            if (node.as.stmt.compound.scope_flag == NEWSCOPE) {
+                enter_scope();
+            }
             break;
         }
         case A_VAR_DECL: {
-            // Set the scope in the node to the correct symbol table.
-            n.as.var_decl.scope = scope;
-
-            // Create the symbol table entry:
-            symtable_entry var_decl = {0};
-            // TODO: Search only current scope to make sure this symbol doesn't already exist.
-            var_decl.identifier = n.as.var_decl.identifier;
-            var_decl.type_info = n.as.var_decl.type_info;
-            var_decl.size = 1;
-            
-            symbol_vector_push(&(symtable_root.data[scope].symbols), var_decl);
-            analyze_node(n.as.var_decl.initializer, scope);
+            symbol_table_add(node.as.var_decl.identifier, node.as.var_decl.type_info, VARIABLE, 1, var_offsets[curr_scope()]++, curr_scope());
+            var_decl_scopes[node_h] = curr_scope();
             break;
         }
         case A_PARAM_DECL: {
-            n.as.param_decl.scope = scope;
-            symtable_entry param_decl = {0};
-            param_decl.identifier = n.as.param_decl.identifier;
-            param_decl.size = 1;
-        }
-        case A_BINARY_EXPR: {
-            analyze_node(n.as.expr.binary.left, scope);
-            analyze_node(n.as.expr.binary.right, scope);
+            symbol_table_add(node.as.param_decl.identifier, node.as.param_decl.type_info, PARAMETER, 1, param_offsets[curr_scope()]++, curr_scope());
+            var_decl_scopes[node_h] = curr_scope();
             break;
         }
-        case A_FUNCTION_CALL: {
-            for (int i = 0; i < (n.as.expr.call.arguments.size); i++)
-                analyze_node(n.as.expr.call.arguments.data[i], scope);
-            break;
-        }
-        case A_FUNCTION_DECL: {
-            // Tell the node the scope of this declaration.
-            n.as.func_decl.scope = scope;
-
-            // Make a symbol to go in our current symbol table
-            symtable_entry func_symbol = {0};
-            func_symbol.identifier = n.as.func_decl.identifier;
-            func_symbol.size = 1; // This should never be used for a function.
-            func_symbol.type = FUNCTION;
-            func_symbol.type_info = n.as.func_decl.type_info;
-
-            symbol_vector_push(&(symtable_root.data[scope].symbols), func_symbol);
-
-            // Make a scope for the function's parameters:
-            int func_scope = symtable_branch_init(scope, n.as.func_decl.identifier);
-
-            // Add the scope
-            //symtable_vector_push(&(scope->children), func_scope);
-            for (int i = 0; i < (n.as.func_decl.parameters.size); i++) {
-                analyze_node(n.as.func_decl.parameters.data[i], func_scope);
-            }
             
-            // Analyze the compound stmt.
-            // This will create another new scope, that is a child of the parameters scope.
-            analyze_node(n.as.func_decl.body, func_scope);
+        case A_FUNCTION_DECL: {
+            symbol_table_add(node.as.func_decl.identifier, node.as.func_decl.type_info, FUNCTION, 1, 1, curr_scope());
+            enter_scope();
             break;
         }
-        case A_ASSIGN_EXPR: {
-            analyze_node(n.as.expr.assign.right, scope);
-            analyze_node(n.as.expr.assign.left, scope);
+        case A_SYMBOL_REF: {
+            symbol_ref_scopes[node_h] = curr_scope();
             break;
         }
-        case A_RETURN_STMT: {
-            analyze_node(n.as.stmt._return.expression, scope);
-            break;
-        }
-        case A_COMPOUND_STMT: {
-            int stmt_scope = scope;
-            if (n.as.stmt.compound.scope_flag == NEWSCOPE) {
-                stmt_scope = symtable_branch_init(scope, "compound_stmt");
-            }
-            for (int i = 0; i < (n.as.stmt.compound.statements.size); i++)
-                analyze_node(n.as.stmt.compound.statements.data[i], stmt_scope);
-            break;
-        }
-        case A_UNARY_EXPR: {
-            analyze_node(n.as.expr.unary.child, scope);
-            break;
-        }
-        // Terminal nodes:
+        case A_ASSIGN_EXPR: 
+        case A_PROGRAM: 
+        case A_BINARY_EXPR: 
+        case A_FUNCTION_CALL:
+        case A_RETURN_STMT:
+        case A_UNARY_EXPR: 
         case A_INTEGER_LITERAL:
-            break;
-        case A_SYMBOL_REF:
-            // TODO: Search the current scope to make sure this variable exists.
-            n.as.expr.symbol.scope = scope;
-            break;
         case A_IF_STMT:
-            analyze_node(n.as.stmt._if.condition, scope);
-            analyze_node(n.as.stmt._if.else_stmt, scope);  
-            analyze_node(n.as.stmt._if.if_stmt, scope);
             break;
         default:
             printf("Error: Analysis traversal Unimplemented for this Node type");
@@ -118,8 +99,4 @@ static void analyze_node(ast_node_t root, int scope) {
     }
 }
 
-void analysis(ast_node_t root) {
-    analyze_node(root, 0);
-    return;
-}
 

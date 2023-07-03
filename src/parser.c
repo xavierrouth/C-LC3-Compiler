@@ -130,11 +130,14 @@ static uint16_t prefix_binding_power[32];
 static uint16_t infix_binding_power[32];
 static uint16_t postfix_binding_power[32];
 
+// https://en.cppreference.com/w/c/language/operator_precedence
 static void init_infix_binding_power() {
-    infix_binding_power[OP_ADD] = 5;
-    infix_binding_power[OP_SUB] = 5;
+    infix_binding_power[OP_ADD] = 6;
+    infix_binding_power[OP_SUB] = 6;
     infix_binding_power[OP_MUL] = 15;
     infix_binding_power[OP_DIV] = 15;
+    infix_binding_power[OP_ASSIGN] = 2;
+    infix_binding_power[OP_GT] = 4;
     return;
 }
 
@@ -168,6 +171,7 @@ static ast_op_enum token_type_to_op(const token_enum type) {
         case T_GT: return OP_GT;
         case T_LT_EQUAL: return OP_LT_EQUAL;
         case T_GT_EQUAL: return OP_GT_EQUAL;
+        case T_ASSIGN: return OP_ASSIGN;
         default:
             return -1;
     }
@@ -285,7 +289,7 @@ static ast_node_t parse_function_call(ast_node_t symbol_ref) {
 static ast_node_t parse_symbol_ref() {
     token_t id = eat_token(T_IDENTIFIER);
     // Scope::
-    ast_node_t symbol = ast_expr_symbol_init(id.contents, 0);
+    ast_node_t symbol = ast_expr_symbol_init(id.contents);
 
     // Function Call
     if (expect_token(T_LPAREN)) {

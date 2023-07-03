@@ -40,8 +40,10 @@ typedef enum AST_OP_ENUM {
     OP_LT,
     OP_GT,
     OP_LT_EQUAL,
-    OP_GT_EQUAL
+    OP_GT_EQUAL,
     // Keep prefix operators down here:
+    // ASSIGNMENT stuff:
+    OP_ASSIGN
 } ast_op_enum;
 
 typedef enum AST_NODE_ENUM {
@@ -87,7 +89,6 @@ struct AST_NODE_STRUCT {
             } call;
             struct { // A reference to an already defined symbol
                 type_enum type;
-                int scope;
                 char* identifier;
             } symbol;
             struct {
@@ -143,23 +144,23 @@ struct AST_NODE_STRUCT {
             char* identifier;
             ast_node_t initializer;
             type_info_t type_info;
-            int scope;
+            uint32_t scope;
         } var_decl;
         struct {
             char* identifier;
             type_info_t type_info;
-            int scope;
+            uint32_t scope;
         } param_decl;
         struct {
             char* identifier;
             ast_node_t body; // Compound statement
             type_info_t type_info;
             ast_node_vector parameters;
-            int scope;
+            uint32_t scope;
         } func_decl; // Do the parameters need to have their own parm var decl node type?
         struct {
             ast_node_vector body;
-            int main; // index into symbol table??
+            uint32_t main; // index into symbol table??
         } program;
     } as;
 };
@@ -168,7 +169,7 @@ struct AST_NODE_STRUCT {
 ast_node_t ast_node_init(ast_node_enum type);
 ast_node_t ast_int_literal_init(uint32_t value);
 ast_node_t ast_expr_call_init(ast_node_t symbol_ref, ast_node_vector arguments);
-ast_node_t ast_expr_symbol_init(char* identifier, int scope);
+ast_node_t ast_expr_symbol_init(char* identifier);
 ast_node_t ast_assign_expr_init(ast_node_t left, ast_node_t right);
 ast_node_t ast_unary_op_init(ast_op_enum type, ast_node_t child, bool order);
 ast_node_t ast_binary_op_init(ast_op_enum type, ast_node_t left, ast_node_t right);
@@ -188,6 +189,7 @@ typedef struct AST_NODE_VISITOR {
         PRINT_AST,
         FREE_AST,
         CHECK_AST,
+        ANALYSIS,
     } visitor_type;
     bool traversal_type; // POSTORDER or PREORDER
     union {
@@ -195,12 +197,15 @@ typedef struct AST_NODE_VISITOR {
         //     ;
         // } free_ast;
         struct {
-            int indentation;
+            uint32_t indentation;
         } print_ast;
         struct {
             ast_node_enum* results;
-            int index;
+            uint32_t index;
         } check_ast;
+        struct {
+            int useless;
+        } analysis;
     } as;
 } ast_node_visitor;
 
@@ -210,9 +215,11 @@ void print_ast(ast_node_t root);
 
 void free_ast(ast_node_t root);
 
+void analysis(ast_node_t root);
+
 void check_ast(ast_node_t root, ast_node_enum* results);
 
-void print_ast_node(ast_node_t node, int indentation);
+void print_ast_node(ast_node_t node, uint32_t indentation);
 
 void free_ast_node(ast_node_t node);
 

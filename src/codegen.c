@@ -1,15 +1,18 @@
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "codegen.h"
 #include "AST.h"
-
-#include <stdarg.h>
+#include "symbol_table.h"
 
 // The whole visitor pattern is stupid.
 
 // Register states
 #define UNUSED 0
 #define USED 1
+
+extern int32_t symbol_ref_scopes[];
+extern int32_t var_decl_scopes[];
 
 static codegen_state_t state;
 
@@ -48,15 +51,28 @@ void emit_ast(ast_node_t root) {
     return;
 } 
 
+// TODO: Make this better:
+static char* current_function_name;
+
 // Sethi-Ullman Register Allocation for the expression rooted at this node.
 static int emit_expression_node(ast_node_t node_h) {
     // TODO: Add immediates.
     struct AST_NODE_STRUCT node = ast_node_data(node_h);
 
     if (node.type == A_BINARY_EXPR) {
+        struct AST_NODE_STRUCT left = ast_node_data(node.as.expr.binary.left);
+        struct AST_NODE_STRUCT right = ast_node_data(node.as.expr.binary.right);
         switch (node.as.expr.binary.type) {
-            struct AST_NODE_STRUCT left = ast_node_data(node.as.expr.binary.left);
-            struct AST_NODE_STRUCT right = ast_node_data(node.as.expr.binary.right);
+            case OP_ASSIGN: {
+                int32_t reg = emit_expression_node(node.as.expr.binary.right);
+
+                //struct AST_NODE_STRUCT child = ast_node_data(node.as.)
+                symbol_table_entry_t symbol = symbol_table_search(symbol_ref_scopes[node.as.expr.binary.left], left.as.expr.symbol.identifier);
+            
+                emitf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, symbol.offset);
+                state.regfile[reg] = UNUSED;
+                return reg;
+            }
             case OP_ADD: {
                 int32_t r1 = 0;
                 // we can only use one immediate though.
@@ -106,6 +122,20 @@ static int emit_expression_node(ast_node_t node_h) {
                 }
             return r1;
             }
+            // left greater than right
+            // Positive is true, anything else is false.
+            case OP_GT: {
+                // Subtract left from right, you can test the CC with add or something
+                // TODO: Reuse code.
+                int32_t r1 = emit_expression_node(node.as.expr.binary.left);
+                state.regfile[r1] = USED;
+                int32_t r2 = emit_expression_node(node.as.expr.binary.right);
+                emitf("NOT R%d, R%d\n", r2, r2);
+                emitf("ADD R%d, R%d, #1\n", r2, r2);
+                emitf("ADD R%d, R%d, R%d\n", r1, r1, r2);
+                state.regfile[r2] = UNUSED;
+                return r1;
+            }
         }
     }
     else if (node.type == A_UNARY_EXPR) {
@@ -130,7 +160,7 @@ static int emit_expression_node(ast_node_t node_h) {
             int r = emit_expression_node(node.as.expr.call.arguments.data[i]);
             // Push r to stack, load next 
             emitf("ADD R6, R6, #-1\n");
-            emitf("STR R%d, R6, #0 ; Push parameter to stack frame\n", r);
+            emitf("STR R%d, R6, #0 ; Push argument to stack frame\n", r);
             emitf("\n");
         }
         emitf("JSR %s\n\n", ast_node_data(node.as.expr.call.symbol_ref).as.expr.symbol.identifier);
@@ -156,28 +186,23 @@ static int emit_expression_node(ast_node_t node_h) {
     }
     else if (node.type == A_SYMBOL_REF) {
         // Do now
-        symtable_entry* sym_data = symtable_search(node.as.expr.symbol.scope, node.as.expr.symbol.identifier);
+        symbol_table_entry_t symbol = symbol_table_search(symbol_ref_scopes[node_h], node.as.expr.symbol.identifier);
         // Load 
         // Parameters need a positive offset??
-        int offset = sym_data->offset;
         // Is a parameter
         int r1 = get_empty_reg();
-        if (sym_data->type == PARAMETER) { // Is a parameter
-            offset = sym_data->offset + 4; // These should be positive.
-            emitf("LDR R%d, R5, #%d ; Load parameter \"%s\"\n", r1, offset, sym_data->identifier);
+        if (symbol.type == PARAMETER) { // Is a parameter
+            emitf("LDR R%d, R5, #%d ; Load parameter \"%s\"\n", r1, symbol.offset + 4, symbol.identifier);
         }
         else { // Not a parameter
-            emitf("LDR R%d, R5, #%d ; Load local variable \"%s\"\n", r1, offset, sym_data->identifier);
+            emitf("LDR R%d, R5, #%d ; Load local variable \"%s\"\n", r1, symbol.offset, symbol.identifier);
         }
-        
-        
         return r1;
     }
-    
-    
 }
 
 void emit_ast_node(ast_node_t node_h) {
+    static uint32_t if_counter = 0;
     if (node_h == -1) {
         return;
     }
@@ -185,6 +210,10 @@ void emit_ast_node(ast_node_t node_h) {
     struct AST_NODE_STRUCT node = ast_node_data(node_h);
 
     switch (node.type) {
+        state.regfile[0] = UNUSED;
+        state.regfile[1] = UNUSED;
+        state.regfile[2] = UNUSED;
+        state.regfile[3] = UNUSED;
         case A_PROGRAM: {
             emitf(".ORIG x3000\n");
             
@@ -197,24 +226,14 @@ void emit_ast_node(ast_node_t node_h) {
             emitf(".END\n");
             return;
         }
-        case A_ASSIGN_EXPR: {
-            // Needs to have access to the children.
-            // Need to pass a reference of the prev results (child nodes) through the function call,
-            // using 
-            // This requires a symbol ref. We can't do those yet.
-            // This means store.
-            int reg = emit_expression_node(node.as.expr.assign.right);
-            //TODO:
-            symtable_entry* sym_data = NULL; // symtable_search(node.as.expr.assign.left->as.symbol_ref.scope, node.as.expr.assign.left->as.symbol_ref.identifier);
-            
-            emitf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, sym_data->offset);
-            state.regfile[reg] = UNUSED;
-            return;
-        }
         // Somehow we need to pattern match these two into the same instruction.
         // Binops on immediates can be one instruction if the immediate is small enough.
         // How does one even do that?
         case A_RETURN_STMT: {
+            state.regfile[0] = UNUSED;
+            state.regfile[1] = UNUSED;
+            state.regfile[2] = UNUSED;
+            state.regfile[3] = UNUSED;
             // Load the child into R0
             // Check if its already in R0???
             // No optimizations yet.
@@ -222,20 +241,45 @@ void emit_ast_node(ast_node_t node_h) {
             // Write it into return value slot, which 
             emitf("\n");
             emitf("STR R%d, R5, #3 ; Write return value, always R5 + 3\n", reg);
+            // Need to know what funciton we are returning from somehow.
+            emitf("BRnzp %s_teardown \n", current_function_name);
             emitf("\n");
             return;
         }
-        case A_COMPOUND_STMT: {
-            for (int i = 0; i < (node.as.stmt.compound.statements.size); i++)
-                emit_ast_node(node.as.stmt.compound.statements.data[i]);
-            break;
-        }
-        case A_FUNCTION_DECL: {
+        case A_IF_STMT: {
             state.regfile[0] = UNUSED;
             state.regfile[1] = UNUSED;
             state.regfile[2] = UNUSED;
             state.regfile[3] = UNUSED;
+            int32_t r_condition = emit_expression_node(node.as.stmt._if.condition);
+            // Test the condition code
+            // TODO: Else statement.
+            emitf("AND R%d, R%d, R%d ; Load reg value into NZP\n", r_condition, r_condition, r_condition);
+            emitf(r_condition);
+            emitf("BRnz if_stmt%d_end ; Take branch if condition is false\n", if_counter);
+            emit_ast_node(node.as.stmt._if.if_stmt);
+            emitf("if_stmt%d_end\n", if_counter++);
+            return;
+        }
+        case A_COMPOUND_STMT: {
+            state.regfile[0] = UNUSED;
+            state.regfile[1] = UNUSED;
+            state.regfile[2] = UNUSED;
+            state.regfile[3] = UNUSED;
+            for (int i = 0; i < (node.as.stmt.compound.statements.size); i++)
+                emit_ast_node(node.as.stmt.compound.statements.data[i]);
+            return;
+        }
+        case A_FUNCTION_DECL: {
+            bool is_main = !strcmp(node.as.func_decl.identifier, "main");
+            state.regfile[0] = UNUSED;
+            state.regfile[1] = UNUSED;
+            state.regfile[2] = UNUSED;
+            state.regfile[3] = UNUSED;
+            current_function_name = node.as.func_decl.identifier;
             // Callee save registers:
+
+            // 
             emitf("\n");
             emitf("; Begin function %s:\n", node.as.func_decl.identifier);
             emitf("%s\n", node.as.func_decl.identifier);
@@ -248,50 +292,76 @@ void emit_ast_node(ast_node_t node_h) {
             emitf("ADD R6, R6, #-1 ; \n");
             emitf("STR R5, R6, #0  ; Push R5 (Caller's Frame Pointer)\n");
             emitf("\n");
+            // Callee Save Registers
+            /**
+            if (is_main) {
+                emitf("ADD R6, R6, #-4 ; \n");
+                emitf("STR R0, R6, #3  ; Push R0 \n");
+                emitf("STR R1, R6, #2  ; Push R1\n");
+                emitf("STR R2, R6, #1  ; Push R2\n");
+                emitf("STR R3, R6, #0  ; Push R3\n");
+                }
+                */
+            
             emitf("ADD R5, R6, #-1 ; Set frame pointer for function\n");
             emitf("\n");
             emitf("; Perform work for function: \n");
             emit_ast_node(node.as.func_decl.body);
-            emitf("; Callee Teardown: \n");
+            emitf("%s_teardown \n", node.as.func_decl.identifier);
             emitf("ADD R6, R5, #1 ; Pop local variables\n");
             emitf("\n");
+            // Callee Restore Registers
+            /**
+            if (is_main) {
+                emitf("ADD R6, R6, #4\n");
+                emitf("LDR R0, R6, #-3 ; \n");
+                emitf("LDR R1, R6, #-2 ; \n");
+                emitf("LDR R2, R6, #-1 ; \n");
+                emitf("LDR R3, R6, #0 ; \n");
+            }
+            */
+            
+
             emitf("LDR R5, R6, #0 ; Pop the frame pointer\n");
             emitf("ADD R6, R6, #1\n");
             emitf("\n");
             emitf("LDR R7, R6, #0 ; Pop the return address\n");
             emitf("ADD R6, R6, #1\n");
-            emitf("RET\n");
+            
+            // Don't return from main.
+            if (!is_main)
+                emitf("RET\n");
             emitf("; End function %s\n", node.as.func_decl.identifier);
             emitf("\n");
-            break;
+            return;
         }
         case A_PARAM_DECL: 
             // Don't do anything.
-            break;
+            return;
         case A_VAR_DECL:
             // Is global scope
             // We will have a global data section, instead of placing them in the same order
             // as they are declared in the program.
             // Global data section is at address x5000
             // Global variable
-            if (node.as.var_decl.scope == 0) {
+            // This decl needs to point to a 
+            if (var_decl_scopes[node_h] == 0) {
                 emitf("%s .FILL x0000\n", node.as.var_decl.identifier);
                 // No initializer.
                 return;
             }
             
-            
             // Local Variable, 
             // allocate space for local variable
             emitf("ADD R6, R6, #-1 ; Allocate space for \"%s\"\n", node.as.var_decl.identifier);
-            if (node.as.var_decl.initializer != NULL) {
+            if (node.as.var_decl.initializer != -1) {
                 // TOOD: Assignment nodes should not really be separate, there should be an assignemnt expression.
                 // But for now, we can kepe initialization separate, as for static ints it works different I suppose
                 // Load a reg with the initializer value
                 int reg = emit_expression_node(node.as.var_decl.initializer);
-                symtable_entry* sym_data = symtable_search(node.as.var_decl.scope, node.as.var_decl.identifier);
+                symbol_table_entry_t symbol = symbol_table_search(var_decl_scopes[node_h], node.as.var_decl.identifier);
                 
-                emitf("STR R%d, R5, #%d ; Initialize variable\n\n", reg, sym_data->offset);
+                emitf("STR R%d, R5, #%d ; Initialize variable\n\n", reg, symbol.offset);
                 state.regfile[reg] = UNUSED;
             }
             return;
