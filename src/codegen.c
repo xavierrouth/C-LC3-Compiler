@@ -54,6 +54,57 @@ void emit_ast(ast_node_t root) {
 // TODO: Make this better:
 static char* current_function_name;
 
+static int emit_expression_node(ast_node_t node_h);
+
+static uint32_t emit_condition_node(ast_node_t node_h) {
+    struct AST_NODE_STRUCT node = ast_node_data(node_h);
+
+    int32_t right = emit_expression_node(node.as.expr.binary.right);
+    int32_t left = emit_expression_node(node.as.expr.binary.left);
+
+    state.regfile[right] = UNUSED;
+    state.regfile[left] = UNUSED;
+
+    int32_t ret = left;
+    int32_t scratch = right;
+
+    // Store result in left always.
+    switch (node.as.expr.binary.type) {
+        case OP_LT: { // Sub left from right.
+            emitf("NOT R%d, R%d ; Test '<' \n", left, left);
+            emitf("ADD R%d, R%d, #1\n", left, left);
+            emitf("ADD R%d, R%d, R%d\n", ret, left, right);
+            break;
+        }
+        case OP_GT: {
+            emitf("NOT R%d, R%d ; Test '>' \n", right, right);
+            emitf("ADD R%d, R%d, #1\n", right, right);
+            emitf("ADD R%d, R%d, R%d\n", ret, left, right);
+            break;
+        }
+        case OP_EQUALS: {
+            //TODO: Optimize this:
+            
+            emitf("NOT R%d, R%d ; Test '<' \n", left, left);
+            emitf("ADD R%d, R%d, #1\n", left, left);
+            emitf("ADD R%d, R%d, R%d\n", ret, left, right);
+            emitf("BRz #3\n"); // If its zero, skip the next stepa
+            emitf("AND R%d, R%d, #0\n", ret, ret); // Zero out reg 
+            emitf("BRz #3\n");
+            emitf("AND R%d, R%d, #0\n", ret, ret); // Need to put negative in this register
+            emitf("ADD R%d, R%d, #1\n", ret, ret); // This needs to be positive
+            break;
+        }
+        case OP_NOTEQUALS: {
+            emitf("DONT DO NOTEQULAS");
+            break;
+        }
+
+    }
+    state.regfile[left] = USED;
+    return left;
+}
+
 // Sethi-Ullman Register Allocation for the expression rooted at this node.
 static int emit_expression_node(ast_node_t node_h) {
     // TODO: Add immediates.
@@ -69,7 +120,7 @@ static int emit_expression_node(ast_node_t node_h) {
                 //struct AST_NODE_STRUCT child = ast_node_data(node.as.)
                 symbol_table_entry_t symbol = symbol_table_search(symbol_ref_scopes[node.as.expr.binary.left], left.as.expr.symbol.identifier);
             
-                emitf("STR R%d, R5, #%d ; Assign to variable\n\n", reg, -1 * symbol.offset);
+                emitf("STR R%d, R5, #%d ; Assign to variable \"%s\"\n\n", reg, -1 * symbol.offset, symbol.identifier);
                 state.regfile[reg] = UNUSED;
                 return reg;
             }
@@ -122,20 +173,15 @@ static int emit_expression_node(ast_node_t node_h) {
                 }
             return r1;
             }
-            // left greater than right
-            // Positive is true, anything else is false.
-            case OP_GT: {
-                // Subtract left from right, you can test the CC with add or something
-                // TODO: Reuse code.
-                int32_t r1 = emit_expression_node(node.as.expr.binary.left);
-                state.regfile[r1] = USED;
-                int32_t r2 = emit_expression_node(node.as.expr.binary.right);
-                emitf("NOT R%d, R%d\n", r2, r2);
-                emitf("ADD R%d, R%d, #1\n", r2, r2);
-                emitf("ADD R%d, R%d, R%d\n", r1, r1, r2);
-                state.regfile[r2] = UNUSED;
-                return r1;
-            }
+            // Conditional Operators::
+            case OP_EQUALS: 
+            case OP_LT:
+            case OP_GT:
+            case OP_NOTEQUALS:
+            case OP_GT_EQUAL:
+            case OP_LT_EQUAL:
+                return emit_condition_node(node_h);
+            
         }
     }
     else if (node.type == A_UNARY_EXPR) {
@@ -254,9 +300,9 @@ void emit_ast_node(ast_node_t node_h) {
             int32_t r_condition = emit_expression_node(node.as.stmt._if.condition);
             // Test the condition code
             // TODO: Else statement.
-            emitf("AND R%d, R%d, R%d ; Load reg value into NZP\n", r_condition, r_condition, r_condition);
+            emitf("AND R%d, R%d, R%d  ; Load condition expr result into NZP\n", r_condition, r_condition, r_condition);
             //emitf(r_condition);
-            emitf("BRnz if_stmt%d_end ; Take branch if condition is false\n", if_counter);
+            emitf("BRnz if_stmt%d_end ; Jump over if block if condition is false\n", if_counter);
             emit_ast_node(node.as.stmt._if.if_stmt);
             emitf("if_stmt%d_end\n", if_counter++);
             return;
@@ -361,7 +407,7 @@ void emit_ast_node(ast_node_t node_h) {
                 int reg = emit_expression_node(node.as.var_decl.initializer);
                 symbol_table_entry_t symbol = symbol_table_search(var_decl_scopes[node_h], node.as.var_decl.identifier);
                 
-                emitf("STR R%d, R5, #%d ; Initialize variable\n\n", reg, symbol.offset);
+                emitf("STR R%d, R5, #%d ; Initialize \"%s\" \n\n", reg, symbol.offset, node.as.var_decl.identifier);
                 state.regfile[reg] = UNUSED;
             }
             return;

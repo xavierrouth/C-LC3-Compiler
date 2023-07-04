@@ -159,20 +159,6 @@ ast_node_t ast_program_init(ast_node_vector body) {
 
 // Use this same buffer for all the thingies
 extern char print_buffer[128];
-
-ast_op_enum token_to_op(token_enum type) {
-    switch (type) {
-        case T_SUB: return OP_SUB;
-        case T_ADD: return OP_ADD;
-        case T_MUL: return OP_MUL;
-        case T_COMMA: return OP_COMMA;
-        //case T_NOT: return OP_NOT;
-        case T_DIV: return OP_DIV;
-        case T_ASSIGN: return OP_ASSIGN;
-        default: return OP_INVALID;
-    }
-}
-
 static const char* ast_type_to_str(ast_node_enum type) {
     switch(type) {
         case A_ASSIGN_EXPR: return "A_ASSIGN_EXPR";
