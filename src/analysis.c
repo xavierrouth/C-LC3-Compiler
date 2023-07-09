@@ -80,10 +80,16 @@ void analyze_ast_node(ast_node_t node_h) {
             enter_scope();
             break;
         }
+        // For statements have there own scope for vairables defined in them. They also have a child scope that is the compound statement / body.
+        case A_FOR_STMT: {
+            enter_scope();
+            break;
+        }
         case A_SYMBOL_REF: {
             symbol_ref_scopes[node_h] = curr_scope();
             break;
         }
+        case A_WHILE_STMT:
         case A_ASSIGN_EXPR: 
         case A_PROGRAM: 
         case A_BINARY_EXPR: 

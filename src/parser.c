@@ -327,7 +327,23 @@ static ast_node_t parse_expression(uint16_t min_binding_power);
 
 static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info);
 
+// Eats the braces:
 static ast_node_t parse_compound_statement();
+
+/** If the expression is 'missing' i.e. == -1, then report an error and return true, otherwise return false*/
+static bool check_missing_expression(ast_node_t expr) {
+    if (expr == -1) {
+        parser_error_t error = {
+            .invalid_token = get_token(),
+            .prev_token = previous_token(),
+            .type = ERROR_MISSING_EXPRESSION
+        };
+        report_error(error);
+        return true;
+    }
+
+    return false;
+} 
 
 static type_info_t parse_declaration_specifiers() {
     // Storage Class:
@@ -503,8 +519,8 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
             }
             next_token();
             // TODO: Test for '['
-            ast_node_t child = parse_expression(0);
-            left = ast_unary_op_init(op_type, child, POSTFIX);
+            //ast_node_t child = parse_expression(0);
+            left = ast_unary_op_init(op_type, left, POSTFIX);
             continue;
         }
 
@@ -541,6 +557,26 @@ static ast_node_t parse_return_statement() {
     ast_node_t node = ast_return_stmt_init(expression);
     eat_token(T_SEMICOLON);
     return node;
+}
+
+static ast_node_t parse_for_statement() {
+    // TODO: Implement this
+    eat_token(T_FOR);
+    eat_token(T_FOR);
+    return -1;
+}
+
+static ast_node_t parse_while_statement() {
+    eat_token(T_WHILE);
+    eat_token(T_LPAREN);
+    ast_node_t condition = parse_expression(0);
+    if (check_missing_expression(condition)) {
+        skip_statement();
+        return -1;
+    }
+    eat_token(T_RPAREN);
+    ast_node_t body = parse_compound_statement();
+    return ast_while_stmt_init(condition, body);
 }
 
 static ast_node_t parse_if_statement() {
@@ -591,6 +627,12 @@ static ast_node_t parse_statement() {
     else if (expect_token(T_IF)) {
         return parse_if_statement();
     }
+    else if (expect_token(T_WHILE)) {
+        return parse_while_statement();
+    }
+    else if (expect_token(T_FOR)) {
+        return parse_for_statement();
+    }
 
     // Attempt var declaration/
     type_info_t type_info = parse_declaration_specifiers(); 
@@ -616,13 +658,7 @@ static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info)
         eat_token(T_ASSIGN);
         // Parse variable initialization definition
         ast_node_t initializer = parse_expression(0);
-        if (initializer == -1) {
-            parser_error_t error = {
-                .invalid_token = get_token(),
-                .prev_token = previous_token(),
-                .type = ERROR_MISSING_EXPRESSION
-            };
-            report_error(error);
+        if (check_missing_expression(initializer)) {
             skip_statement(); 
             return -1;
         }

@@ -111,6 +111,13 @@ ast_node_t ast_compound_stmt_init(ast_node_vector statements, bool scope_flag) {
     return node;
 }
 
+ast_node_t ast_while_stmt_init(ast_node_t condition, ast_node_t body) {
+    ast_node_t node = ast_node_init(A_WHILE_STMT);
+    ast_instances[node].as.stmt._while.condition = condition;
+    ast_instances[node].as.stmt._while.body = body;
+    return node;
+}
+
 ast_node_t ast_return_stmt_init(ast_node_t expression) {
     ast_node_t node = ast_node_init(A_RETURN_STMT);
     ast_instances[node].as.stmt._return.expression = expression;
@@ -175,6 +182,8 @@ static const char* ast_type_to_str(ast_node_enum type) {
         case A_UNARY_EXPR: return "A_UNOP_EXPR";
         case A_TERNARY_EXPR: return "A_TERNARY_EXPR";
         case A_IF_STMT: return "A_IF_STMT";
+        case A_FOR_STMT: return "A_FOR_STMT";
+        case A_WHILE_STMT: return "A_WHILE_STMT";
     }
     return "ast to string unimlpemented";
 }
@@ -200,6 +209,8 @@ static const char* ast_op_to_str(ast_op_enum type) {
         case OP_LT: return "<";
         case OP_ASSIGN: return "=";
         case OP_BITXOR: return "^";
+        case OP_INCREMENT: return "++";
+        case OP_DECREMENT: return "--";
     }
     return "ast_op_to_str unimplemented";
 }
@@ -340,6 +351,19 @@ void ast_traversal(ast_node_t root, ast_node_visitor* visitor) {
             ast_traversal(ast_instances[root].as.stmt._if.condition, visitor);
             ast_traversal(ast_instances[root].as.stmt._if.if_stmt, visitor);
             ast_traversal(ast_instances[root].as.stmt._if.else_stmt, visitor);
+            break;
+        }
+        case A_FOR_STMT: {
+            ast_traversal(ast_instances[root].as.stmt._for.condition, visitor);
+            ast_traversal(ast_instances[root].as.stmt._for.initilization, visitor);
+            ast_traversal(ast_instances[root].as.stmt._for.update, visitor);
+            ast_traversal(ast_instances[root].as.stmt._for.body, visitor);
+            break;
+        }
+        case A_WHILE_STMT: {
+            ast_traversal(ast_instances[root].as.stmt._while.condition, visitor);
+            ast_traversal(ast_instances[root].as.stmt._while.body, visitor);
+            break;
         }
         // Terminal nodes:
         case A_PARAM_DECL:

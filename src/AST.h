@@ -93,6 +93,9 @@ typedef enum AST_NODE_ENUM {
     A_COMPOUND_STMT,
     A_RETURN_STMT,
     A_IF_STMT,
+    // LOOPS:
+    A_WHILE_STMT,
+    A_FOR_STMT,
     
     // Expressions:
     A_SYMBOL_REF,
@@ -165,7 +168,12 @@ struct AST_NODE_STRUCT {
                 ast_node_t initilization;
                 ast_node_t condition;
                 ast_node_t update;
+                ast_node_t body;
             } _for;
+            struct {
+                ast_node_t condition;
+                ast_node_t body;
+            } _while;
             struct {
                 ast_node_t condition;
                 ast_node_t if_stmt;
@@ -211,6 +219,8 @@ ast_node_t ast_unary_op_init(ast_op_enum type, ast_node_t child, bool order);
 ast_node_t ast_binary_op_init(ast_op_enum type, ast_node_t left, ast_node_t right);
 ast_node_t ast_ternary_op_init(ast_op_enum type, ast_node_t left, ast_node_t right);
 ast_node_t ast_compound_stmt_init(ast_node_vector statements, bool scope_flag);
+ast_node_t ast_while_stmt_init(ast_node_t condition, ast_node_t body);
+ast_node_t ast_for_stmt_init(ast_node_t intializer, ast_node_t condition, ast_node_t update, ast_node_t body);
 ast_node_t ast_return_stmt_init(ast_node_t expression);
 ast_node_t ast_if_stmt_init(ast_node_t condition, ast_node_t if_stmt, ast_node_t else_stmt);
 ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, char* identifier);
