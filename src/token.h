@@ -13,11 +13,7 @@ typedef struct TOKEN_DEBUG_INFO_STRUCT{
 
 // Rough groupings, some of the tokens take different meanings depending on the context.
 typedef enum TOKEN_KIND_ENUM {
-    T_BASE = 0, // 
-    T_IDENTIFIER, 
-    T_INTLITERAL,
-    T_COMMENT,
-
+    T_INVALID = -1, // 
     // ==== Operators ====
     T_ASSIGN, // = 
 
@@ -69,14 +65,20 @@ typedef enum TOKEN_KIND_ENUM {
     // Punctuation
     T_LPAREN, // '('
     T_RPAREN, // ')'
-    T_LBRACE, // '{'
-    T_RBRACE, // '}'
     T_LBRACKET, // '['
     T_RBRACKET, // ']'
 
     T_COLON, // ':'
     T_COMMA, // ','
     T_SEMICOLON, // ';'
+
+    T_LBRACE, // '{'
+    T_RBRACE, // '}'
+
+    // Symbols / Literals
+    T_IDENTIFIER, 
+    T_INTLITERAL,
+    T_COMMENT,
 
     // ==== Keywords ====
     // Types
@@ -113,8 +115,6 @@ typedef enum TOKEN_KIND_ENUM {
     T_CHAR,
 
     // Helper
-    T_UKNOWN,
-    T_INVALID,
     T_START,
     T_END
 } token_enum;

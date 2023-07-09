@@ -56,6 +56,8 @@ static char* current_function_name;
 
 static int emit_expression_node(ast_node_t node_h);
 
+// TODO: Optimization
+// If the result is unused We can greatly simplify this by just modifying the nzp in the if statement.
 static uint32_t emit_condition_node(ast_node_t node_h) {
     struct AST_NODE_STRUCT node = ast_node_data(node_h);
 
@@ -71,26 +73,25 @@ static uint32_t emit_condition_node(ast_node_t node_h) {
     // Store result in left always.
     switch (node.as.expr.binary.type) {
         case OP_LT: { // Sub left from right.
-            emitf("NOT R%d, R%d ; Test '<' \n", left, left);
+            emitf("NOT R%d, R%d ; Calculate '<' \n", left, left);
             emitf("ADD R%d, R%d, #1\n", left, left);
             emitf("ADD R%d, R%d, R%d\n", ret, left, right);
             break;
         }
         case OP_GT: {
-            emitf("NOT R%d, R%d ; Test '>' \n", right, right);
+            emitf("NOT R%d, R%d ; Calculate '>' \n", right, right);
             emitf("ADD R%d, R%d, #1\n", right, right);
             emitf("ADD R%d, R%d, R%d\n", ret, left, right);
             break;
         }
         case OP_EQUALS: {
             //TODO: Optimize this:
-            
-            emitf("NOT R%d, R%d ; Test '<' \n", left, left);
+            emitf("NOT R%d, R%d ; Calculate '==' \n", left, left);
             emitf("ADD R%d, R%d, #1\n", left, left);
             emitf("ADD R%d, R%d, R%d\n", ret, left, right);
-            emitf("BRz #3\n"); // If its zero, skip the next stepa
+            emitf("BRz #2\n"); // If its zero, skip the next stepa
             emitf("AND R%d, R%d, #0\n", ret, ret); // Zero out reg 
-            emitf("BRz #3\n");
+            emitf("BRz #2\n");
             emitf("AND R%d, R%d, #0\n", ret, ret); // Need to put negative in this register
             emitf("ADD R%d, R%d, #1\n", ret, ret); // This needs to be positive
             break;
@@ -285,11 +286,9 @@ void emit_ast_node(ast_node_t node_h) {
             // No optimizations yet.
             int reg = emit_expression_node(node.as.stmt._return.expression);
             // Write it into return value slot, which 
-            emitf("\n");
             emitf("STR R%d, R5, #3 ; Write return value, always R5 + 3\n", reg);
             // Need to know what funciton we are returning from somehow.
             emitf("BRnzp %s_teardown \n", current_function_name);
-            emitf("\n");
             return;
         }
         case A_IF_STMT: {
@@ -298,13 +297,24 @@ void emit_ast_node(ast_node_t node_h) {
             state.regfile[2] = UNUSED;
             state.regfile[3] = UNUSED;
             int32_t r_condition = emit_expression_node(node.as.stmt._if.condition);
-            // Test the condition code
-            // TODO: Else statement.
+            emitf("\n");
             emitf("AND R%d, R%d, R%d  ; Load condition expr result into NZP\n", r_condition, r_condition, r_condition);
-            //emitf(r_condition);
-            emitf("BRnz if_stmt%d_end ; Jump over if block if condition is false\n", if_counter);
-            emit_ast_node(node.as.stmt._if.if_stmt);
-            emitf("if_stmt%d_end\n", if_counter++);
+            // Else Statement:
+            if (node.as.stmt._if.else_stmt != -1) {
+                emitf("BRnz else_stmt%d ; Jump to else statement if condition is false\n", if_counter); // Otherwise fall through to if statement
+                emit_ast_node(node.as.stmt._if.if_stmt);
+                emitf("BRnz if_stmt%d_end\n", if_counter);
+                emitf("else_stmt%d\n", if_counter);
+                emit_ast_node(node.as.stmt._if.else_stmt);
+                emitf("if_stmt%d_end\n", if_counter++);
+            } // No Else Statement:
+            else {
+                emitf("BRnz if_stmt%d_end ; Jump over if block if condition is false\n", if_counter);
+                emitf("; Perform work for if block\n");
+                emit_ast_node(node.as.stmt._if.if_stmt);
+                emitf("if_stmt%d_end\n", if_counter++);
+            }
+            emitf("\n");
             return;
         }
         case A_COMPOUND_STMT: {
@@ -407,9 +417,10 @@ void emit_ast_node(ast_node_t node_h) {
                 int reg = emit_expression_node(node.as.var_decl.initializer);
                 symbol_table_entry_t symbol = symbol_table_search(var_decl_scopes[node_h], node.as.var_decl.identifier);
                 
-                emitf("STR R%d, R5, #%d ; Initialize \"%s\" \n\n", reg, symbol.offset, node.as.var_decl.identifier);
+                emitf("STR R%d, R5, #%d ; Initialize \"%s\" \n", reg, symbol.offset, node.as.var_decl.identifier);
                 state.regfile[reg] = UNUSED;
             }
+            emitf("\n");
             return;
             
         case A_FUNCTION_CALL:
@@ -418,6 +429,7 @@ void emit_ast_node(ast_node_t node_h) {
         case A_INTEGER_LITERAL: 
         case A_SYMBOL_REF: 
             emit_expression_node(node_h);
+            emitf("\n");
             return;
         
     }

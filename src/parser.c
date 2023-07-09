@@ -8,64 +8,138 @@
 #define VARIABLE_DECL true
 #define FUNCTION_DECL false
 
+#define MAX_PUTBACK_TOKENS 8
+
 #define errorf printf
 
-static parser_t Parser; // Initialized to 0
+static parser_t parser; // parser-scope parser state
+static parser_error_handler error_handler; // parser-scope error handler
 
 /** ==================================================
  * Parser Errors:
  * =================================================== */
 
-static void print_error(parser_error_t error) {
+static void print_error(parser_error_t error);
+
+/* Ends parsing and reports all errors / warnings. */
+static void end_parse() {
+    static bool triggered = false;
+
+    if (triggered) {
+        return;
+    }
+    // Just the first error:
+    if (error_handler.num_errors > 0)
+        print_error(error_handler.errors[0]);
+    //for (int i = 0; i < error_handler.num_errors; i++) {
+    //    print_error(error_handler.errors[i]);
+    //}
+    for (int i = 0; i < error_handler.num_warnings; i++) {
+        //print_error(error_handler.warnings[i]);
+    }
+    triggered = true;
+}
+
+static void report_error(parser_error_t error) {
+    if (error_handler.num_errors == MAX_NUM_PARSER_ERRORS) {
+        end_parse();
+    }
+    error_handler.errors[error_handler.num_errors++] = error;
     
+}
+
+static void report_warning(parser_error_t error) {
+    return;
+}
+
+static void print_error(parser_error_t error) {
+    token_t previous = error.prev_token;
     switch (error.type) {
+        
         case ERROR_MISSING_SEMICOLON: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected semicolon.\n");
-            print_line(Parser.error_handler.prev_token.debug_info.row, Parser.source, Parser.source_size);
-            size_t len = strlen("Line 2: ") + 1;
-            printf_indent(Parser.error_handler.prev_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(previous.debug_info.row, parser.source, parser.source_size);
+            size_t len = strlen("Line #: ") + 1;
+            printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            return;
+        }
+        case ERROR_MISSING_EXPRESSION: {
+            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected an expression.\n");
+            print_line(previous.debug_info.row, parser.source, parser.source_size);
+            size_t len = strlen("Line #: ") + 1;
+            printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         default: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Something is wrong!.\n");
-            print_line(Parser.error_handler.prev_token.debug_info.row, Parser.source, Parser.source_size);
-            size_t len = strlen("Line 2: ") + 1;
-            printf_indent(Parser.error_handler.prev_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(error.prev_token.debug_info.row, parser.source, parser.source_size);
+            size_t len = strlen("Line #: ") + 1;
+            printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
     }
-    
 }
+    
+
 /** ==================================================
  * Token stream interaction:
  * =================================================== */
 
+static token_t prev_token;
+
 // Gets the next token from the token stream, including tokens that have been putback.
 static token_t next_token() 
-{
+{   
+    static token_t helper_token;
     token_t token;
-    if (Parser.putback_idx > 0) {
-        token = Parser.putback_stack[--Parser.putback_idx];
+
+    // Abort flag has been raised, stop parsing and print all errors.
+    if (error_handler.abort) {
+        token.kind = T_END;
+        end_parse();
+        return token;
+    }
+    
+    if (parser.putback_idx > 0) {
+        token = parser.putback_stack[--parser.putback_idx];
         // If its putback, then don't update the prev token.
     }
     else {
         token = get_token();
-        Parser.error_handler.prev_token = Parser.error_handler.curr_token;
+        prev_token = helper_token;
+        helper_token = token;
     }
-    // This is messy:
-    Parser.error_handler.curr_token = token;
     
     return token;
+}
+
+static void skip_statement() {
+    // Eat tokens until we get a ';'
+    while (true) {
+        token_t token = next_token();
+        if (token.kind == T_SEMICOLON) {
+            break;
+        }
+        if (token.kind == T_END) {
+            end_parse();
+            break;
+        }
+    }
+}
+
+static token_t previous_token()
+{
+    return prev_token;
 }
 
 // Do we need to allow for multiple token putback?
 static void putback_token(token_t t) 
 {
-    if (Parser.putback_idx == 7) {
+    if (parser.putback_idx == MAX_PUTBACK_TOKENS) {
         printf("Too many putbacks!!");
         return;
     }
-    Parser.putback_stack[Parser.putback_idx++] = t;
+    parser.putback_stack[parser.putback_idx++] = t;
     return;
 }
 
@@ -99,22 +173,22 @@ static token_t eat_token(token_enum type)
         if (type == T_SEMICOLON) {
             parser_error_t error = {
                 .invalid_token = t,
-                .prev_token = Parser.error_handler.prev_token,
+                .prev_token = previous_token(),
                 .type = ERROR_MISSING_SEMICOLON
             };
-            print_error(error);
+            report_error(error);
         }
         else {
             parser_error_t error = {
                 .invalid_token = t,
-                .prev_token = Parser.error_handler.prev_token,
+                .prev_token = previous_token(),
                 .type = ERROR_GENERAL
             };
-            print_error(error);
+            report_error(error);
             
             t.kind = T_INVALID;
         }
-        Parser.error_handler.abort = true;
+        error_handler.abort = true;
         return t;
         
     }
@@ -125,31 +199,64 @@ static token_t eat_token(token_enum type)
  * Pratt Parsing / Operator Powers:
  * =================================================== */
 
+typedef struct BP_PAIR_STRUCT{
+    uint16_t l;
+    uint16_t r;
+} bp_pair;
+
 // 32 is the number of op types we have.
-static uint16_t prefix_binding_power[32];
-static uint16_t infix_binding_power[32];
-static uint16_t postfix_binding_power[32];
+static uint16_t prefix_binding_power[48];
+static bp_pair infix_binding_power[48];
+static uint16_t postfix_binding_power[48];
+
+static bool is_infix(ast_op_enum op) {
+    return (infix_binding_power[op].l != 0 && infix_binding_power[op].r != 0);
+}
+
+static bool is_prefix(ast_op_enum op) {
+    return (prefix_binding_power[op] != 0);
+}
+
+static bool is_postfix(ast_op_enum op) {
+    return (postfix_binding_power[op] != 0);
+}
 
 // https://en.cppreference.com/w/c/language/operator_precedence
 static void init_infix_binding_power() {
-    infix_binding_power[OP_ADD] = 6;
-    infix_binding_power[OP_SUB] = 6;
-    infix_binding_power[OP_MUL] = 15;
-    infix_binding_power[OP_DIV] = 15;
-    infix_binding_power[OP_ASSIGN] = 2;
-    infix_binding_power[OP_GT] = 4;
-    return;
+    infix_binding_power[OP_MUL] = (bp_pair) {.l = 26, .r = 27};
+    infix_binding_power[OP_DIV] = (bp_pair) {.l = 26, .r = 27};
+    infix_binding_power[OP_MOD] =  (bp_pair) {.l = 26, .r = 27};
+    infix_binding_power[OP_ADD] = (bp_pair) {.l = 24, .r = 25};
+    infix_binding_power[OP_SUB] = (bp_pair) {.l = 24, .r = 25};
+    infix_binding_power[OP_LEFTSHIFT] = (bp_pair) {.l = 22, .r = 23};
+    infix_binding_power[OP_RIGHTSHIFT] = (bp_pair) {.l = 22, .r = 23};
+    
+    infix_binding_power[OP_GT_EQUAL] = (bp_pair) {.l = 14, .r = 15};
+    infix_binding_power[OP_LT_EQUAL] = (bp_pair) {.l = 14, .r = 15};
+    infix_binding_power[OP_GT] = (bp_pair) {.l = 14, .r = 15};
+    infix_binding_power[OP_LT] = (bp_pair) {.l = 14, .r = 15};
+
+    infix_binding_power[OP_EQUALS] = (bp_pair) {.l = 12, .r = 13};
+    infix_binding_power[OP_NOTEQUALS] = (bp_pair) {.l = 12, .r = 13};
+
+    infix_binding_power[OP_BITAND] = (bp_pair) {.l = 10, .r = 11};
+    infix_binding_power[OP_BITXOR] = (bp_pair) {.l = 8, .r = 9};
+
+    infix_binding_power[OP_ASSIGN] = (bp_pair) {.l = 5, .r = 4};
+
+    
 }
 
 static void init_prefix_binding_power() {
-    prefix_binding_power[OP_ADD] = 10;
-    prefix_binding_power[OP_SUB] = 10;
-    prefix_binding_power[OP_INC] = 15;
+    prefix_binding_power[OP_ADD] = 28;
+    prefix_binding_power[OP_SUB] = 28;
+    prefix_binding_power[OP_BITAND] = 28;
+    prefix_binding_power[OP_INCREMENT] = 28;
 }
 
 static void init_postfix_binding_power() {
-    postfix_binding_power[OP_INC] = 15;
-    postfix_binding_power[OP_DEC] = 15;
+    postfix_binding_power[OP_INCREMENT] = 28;
+    postfix_binding_power[OP_DECREMENT] = 28;
     // Array access, function call, struct member access, ptr dereference
 }
 
@@ -159,47 +266,64 @@ static void init_binding_power() {
     init_postfix_binding_power();
 }
 
-static ast_op_enum token_type_to_op(const token_enum type) {
+
+// TODO: AND can become address or bitAND
+static ast_op_enum get_op(const token_enum type) {
     switch(type) {
-        case T_ADD: return OP_ADD;
-        case T_SUB: return OP_SUB;
-        case T_DIV: return OP_DIV;
-        case T_MUL: return OP_MUL;
-        case T_EQUALS: return OP_EQUALS;
-        case T_NOTEQUALS: return OP_NOTEQUALS;
-        case T_LT: return OP_LT;
-        case T_GT: return OP_GT;
-        case T_LT_EQUAL: return OP_LT_EQUAL;
-        case T_GT_EQUAL: return OP_GT_EQUAL;
-        case T_ASSIGN: return OP_ASSIGN;
-        default:
-            return -1;
+    case T_ASSIGN: return OP_ASSIGN;
+    case T_ADD: return OP_ADD;
+    case T_SUB: return OP_SUB;
+    case T_MUL: return OP_MUL;
+    case T_DIV: return OP_DIV;
+    case T_MOD: return OP_MOD;
+    case T_LOGAND: return OP_LOGAND;
+    case T_LOGOR: return OP_LOGOR;
+    case T_LOGNOT: return OP_LOGNOT;
+    case T_INCREMENT: return OP_INCREMENT;
+    case T_DECREMENT: return OP_DECREMENT;
+    case T_BITAND: return OP_BITAND;
+    case T_BITOR: return OP_BITOR;
+    case T_BITXOR: return OP_BITXOR;
+    case T_BITFLIP: return OP_BITFLIP;
+    case T_LEFTSHIFT: return OP_LEFTSHIFT;
+    case T_RIGHTSHIFT: return OP_RIGHTSHIFT;
+    case T_LT: return OP_LT;
+    case T_GT: return OP_GT;
+    case T_LT_EQUAL: return OP_LT_EQUAL;
+    case T_GT_EQUAL: return OP_GT_EQUAL;
+    case T_NOTEQUALS: return OP_NOTEQUALS;
+    case T_EQUALS: return OP_EQUALS;
+    case T_ARROW: return OP_ARROW;
+    case T_TERNARY: return OP_TERNARY;
+    case T_ASSIGN_LSHIFT: return OP_ASSIGN_LSHIFT;
+    case T_ASSIGN_RSHIFT: return OP_ASSIGN_RSHIFT;
+    case T_ASSIGN_MUL: return OP_ASSIGN_MUL;
+    case T_ASSIGN_ADD: return OP_ASSIGN_ADD;
+    case T_ASSIGN_SUB: return OP_ASSIGN_SUB;
+    case T_ASSIGN_DIV: return OP_ASSIGN_DIV;
+    case T_ASSIGN_MOD: return OP_ASSIGN_MOD;
+    case T_ASSIGN_BITAND: return OP_ASSIGN_BITAND;
+    case T_ASSIGN_BITXOR: return OP_ASSIGN_BITXOR;
+    case T_ASSIGN_BITOR: return OP_ASSIGN_BITOR;
+    case T_LPAREN: return OP_LPAREN;
+    case T_RPAREN: return OP_RPAREN;
+    case T_LBRACKET: return OP_LBRACKET;
+    case T_RBRACKET: return OP_RBRACKET;
+    case T_COLON: return OP_COLON;
+    case T_COMMA: return OP_COMMA;
+    default:
+        return OP_INVALID;
     }
     return -1;
 }
 
-static bool is_prefix_op(ast_op_enum op) {
-    switch (op) {
-        case OP_ADD: 
-        case OP_SUB:
-        case OP_MUL:
-        case OP_NOT:
-        case OP_BITNOT:
-        case OP_DEC:
-        case OP_INC:
-            return true;
-        default:
-            return false;
-    }
-}
-
 /** ==================================================
- * Praser Body:
+ * Parser Body:
  * =================================================== */
 
 static ast_node_t parse_declaration();
 
-static ast_node_t parse_expression(int binding_power);
+static ast_node_t parse_expression(uint16_t min_binding_power);
 
 static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info);
 
@@ -302,18 +426,14 @@ static ast_node_t parse_symbol_ref() {
 
 // Pratt Parsing: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 // Don't eat semicolons
-static ast_node_t parse_expression(int binding_power) {
+static ast_node_t parse_expression(uint16_t min_binding_power) {
     ast_node_t left = -1;
     ast_node_t right = -1;
 
-    int left_power = 0;
-    int right_power = 0;
-
-    // Match the first token in the expression.
-    // It can either be identifier, literal, paren groupings,
     token_t op_token = peek_token();
-    ast_op_enum op_type = token_type_to_op(op_token.kind);
-
+    ast_op_enum op_type = get_op(op_token.kind);
+    // Match the first token in the expression.
+    // It can either be identifier, literal, paren groupings, or prefix op
     if (expect_token(T_INTLITERAL))
         left = parse_int_literal();
     else if (expect_token(T_IDENTIFIER)) {
@@ -324,13 +444,24 @@ static ast_node_t parse_expression(int binding_power) {
         left = parse_expression(0);
         eat_token(T_RPAREN);
     }
-    else if (is_prefix_op(op_type)) {
+    else if (is_prefix(op_type)) {
         // Prefix Expression:
         eat_token(op_token.kind);
-        // Don't change left power.
-        right_power = prefix_binding_power[op_type];
-        ast_node_t child = parse_expression(right_power);
+        uint16_t op_power = prefix_binding_power[op_type];
+
+        ast_node_t child = parse_expression(op_power);
         left = ast_unary_op_init(op_type, child, PREFIX);
+    }
+    if (left == -1) {
+        parser_error_t error = {
+            .prev_token = previous_token(),
+            .invalid_token = op_token, 
+            .type = ERROR_MISSING_EXPRESSION
+        };
+        report_error(error);
+        // Probably should skip the entire expression.
+        skip_statement();
+        return -1;
     }
 
     // Infix Expressions:
@@ -349,21 +480,55 @@ static ast_node_t parse_expression(int binding_power) {
         
         // At this point we expect a binary op or a postfix op
         op_token = peek_token();
-        op_type = token_type_to_op(op_token.kind);
-        
-        left_power = infix_binding_power[op_type];
-        right_power = infix_binding_power[op_type] + 1;
-                
-        if (left_power < binding_power) {
-            break;
+        op_type = get_op(op_token.kind);
+
+        if (op_type == OP_INVALID) {
+            // We need an op here.
+            parser_error_t error = {
+                .prev_token = previous_token(),
+                .invalid_token = op_token, 
+                .type = ERROR_MISSING_EXPRESSION
+            };
+            report_error(error);
+            // Probably should skip the entire expression.
+            skip_statement();
+            return -1;
         }
 
-        next_token();
-        right = parse_expression(right_power);
-        left = ast_binary_op_init(op_type, left, right); // node =
+        if (is_postfix(op_type)) {
+            uint16_t op_power = postfix_binding_power[op_type];
+            if (op_power < min_binding_power) {
+                break;
+            }
+            next_token();
+            // TODO: Test for '['
+            ast_node_t child = parse_expression(0);
+            left = ast_unary_op_init(op_type, child, POSTFIX);
+            continue;
+        }
 
-        /** What do we do here?*/
-        //left = node;
+        if (is_infix(op_type)) {
+            bp_pair op_power =  infix_binding_power[op_type];
+            if (op_power.l < min_binding_power) {
+                break;
+            }
+            next_token();
+            // TODO: Test for ternary '?' then ':'
+            right = parse_expression(op_power.r);
+            left = ast_binary_op_init(op_type, left, right); // node =
+            continue;
+        }
+        // Probably an error ehre:?
+        parser_error_t error = {
+            .prev_token = previous_token(),
+            .invalid_token = op_token, 
+            .type = ERROR_MISSING_EXPRESSION
+        };
+        report_error(error);
+        // Probably should skip the entire expression.
+        //skip_statement();
+        break;
+
     } 
     return left;
 }
@@ -412,7 +577,7 @@ static ast_node_t parse_if_statement() {
 // Parse a statement that is in a function.
 static ast_node_t parse_statement() {
     // TODO: Error checks:
-    if (Parser.error_handler.abort) {
+    if (error_handler.abort) {
         return -1;
     }
     // Attempt statement 
@@ -450,6 +615,16 @@ static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info)
         eat_token(T_ASSIGN);
         // Parse variable initialization definition
         ast_node_t initializer = parse_expression(0);
+        if (initializer == -1) {
+            parser_error_t error = {
+                .invalid_token = get_token(),
+                .prev_token = previous_token(),
+                .type = ERROR_MISSING_EXPRESSION
+            };
+            report_error(error);
+            skip_statement(); 
+            return -1;
+        }
         eat_token(T_SEMICOLON);
         ast_node_t node = ast_var_decl_init(initializer, type_info, id_token.contents);
         return node;
@@ -467,7 +642,7 @@ static ast_node_t parse_compound_statement() {
     ast_node_vector statements = ast_node_vector_init(16);
     while(true) {
         ast_node_t stmt = parse_statement();
-        if (Parser.error_handler.abort) {
+        if (error_handler.abort) {
             ast_node_vector_free(statements);
             return -1;
         }
@@ -477,6 +652,8 @@ static ast_node_t parse_compound_statement() {
         }
     }
 
+    end_parse();
+
     eat_token(T_RBRACE);
     ast_node_t node = ast_compound_stmt_init(statements, NEWSCOPE);
     return node;
@@ -485,7 +662,7 @@ static ast_node_t parse_compound_statement() {
 
 static ast_node_t parse_declaration() {
     // Function definition or declaration
-    if (Parser.error_handler.abort) {
+    if (error_handler.abort) {
         return -1;
     }
     if (expect_token(T_END)) {
@@ -591,24 +768,24 @@ static ast_node_t parse_translation_unit() {
 }
 
 void build_ast() {
-    Parser.ast_root = parse_translation_unit();
+    parser.ast_root = parse_translation_unit();
     return;
 }
 
 void teardown_ast() {
     // Traverse the AST and free it.
-    free_ast(Parser.ast_root);
+    free_ast(parser.ast_root);
     return;
 }
 
 void init_parser(const char* source, uint32_t source_size) {
-    Parser.ast_root = -1;
-    Parser.source = source;
-    Parser.source_size = source_size;
+    parser.ast_root = -1;
+    parser.source = source;
+    parser.source_size = source_size;
     init_binding_power();
     return;
 }
 
 ast_node_t get_root() {
-    return Parser.ast_root;
+    return parser.ast_root;
 }

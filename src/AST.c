@@ -185,19 +185,23 @@ static const char* ast_op_to_str(ast_op_enum type) {
         case OP_ADD: return "+";
         case OP_SUB: return "-";
         case OP_MUL: return "*";
-        case OP_NOT: return "!";
+        case OP_LOGNOT: return "!";
         case OP_DIV: return "/";
         case OP_MOD: return "%";
         case OP_EQUALS: return "==";
         case OP_GT: return ">";
+        case OP_BITOR: return "|";
+        case OP_LOGOR: return "||";
+        case OP_BITAND: return "&";
+        case OP_LOGAND: return "&&";
         case OP_NOTEQUALS: return "!=";
         case OP_GT_EQUAL: return ">=";
         case OP_LT_EQUAL: return "<=";
         case OP_LT: return "<";
         case OP_ASSIGN: return "=";
+        case OP_BITXOR: return "^";
     }
-    snprintf(print_buffer, 128, "%d", type);
-    return print_buffer;
+    return "ast_op_to_str unimplemented";
 }
 
 // Visitor pattern:
@@ -489,7 +493,7 @@ void print_ast_node(ast_node_t node, uint32_t indentation) {
         }
         case A_FUNCTION_CALL: {
             snprintf(print_buffer, 128,
-                "<node=%s, , size=%d>\n", \
+                "<node=%s, size=%d>\n", \
                 ast_type_to_str(ast_instances[node].type),
                 ast_instances[node].size);
             printf_indent(indentation*3, print_buffer);

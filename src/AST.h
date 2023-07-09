@@ -24,26 +24,62 @@ typedef int32_t ast_node_t;
 // Both unary and binary operators.
 typedef enum AST_OP_ENUM {
     OP_INVALID = -1,
-    OP_ADD,
-    OP_SUB,
-    OP_MUL,
-    OP_DIV,
-    OP_MOD,
-    OP_NOT,
-    OP_BITNOT,
-    OP_INC,
-    OP_DEC,
-    OP_COMMA, // Wtf is the comma operator??
-    // Conditional, should always return true or false.
-    OP_EQUALS,
-    OP_NOTEQUALS,
-    OP_LT,
-    OP_GT,
-    OP_LT_EQUAL,
-    OP_GT_EQUAL,
-    // Keep prefix operators down here:
-    // ASSIGNMENT stuff:
-    OP_ASSIGN
+    // ==== Operators ====
+    OP_ASSIGN, // = 
+
+    OP_ADD, // '+'
+    OP_SUB, // '-'
+    OP_MUL, // '*'
+    OP_DIV, // '/'
+    OP_MOD, // '%'
+
+    OP_LOGAND, // '&&'
+    OP_LOGOR, // '||'
+    OP_LOGNOT, // '!'
+
+    OP_INCREMENT, // '++'
+    OP_DECREMENT, // '--'
+
+    // Binary Operators
+    OP_BITAND, // '&'
+    OP_BITOR, // '|'
+    OP_BITXOR, // '^'
+    OP_BITFLIP, // '~'
+    OP_LEFTSHIFT, // '<<'
+    OP_RIGHTSHIFT, // '>>'
+
+    // Boolean Operators
+    OP_LT, // '<'
+    OP_GT, // '>'
+    OP_LT_EQUAL, // '<='
+    OP_GT_EQUAL, // '>='
+    OP_NOTEQUALS, // '!='
+    OP_EQUALS, // '==' 
+    
+    OP_ARROW, // '->'
+    OP_TERNARY, // '?'
+
+    // Assignment operators
+    OP_ASSIGN_LSHIFT, // <<=
+    OP_ASSIGN_RSHIFT, // >>=
+    OP_ASSIGN_MUL, // *=
+    OP_ASSIGN_ADD, // '+='
+    OP_ASSIGN_SUB, // '-='
+    OP_ASSIGN_DIV, // '/='
+    OP_ASSIGN_MOD, // '%='
+    OP_ASSIGN_BITAND, // '&='
+    OP_ASSIGN_BITXOR, // '^='
+    OP_ASSIGN_BITOR, // '|='
+
+    // Punctuation
+    OP_LPAREN, // '('
+    OP_RPAREN, // ')'
+    OP_LBRACKET, // '['
+    OP_RBRACKET, // ']'
+
+    OP_COLON, // ':'
+    OP_COMMA, // ','
+    OP_SEMICOLON, // ';'
 } ast_op_enum;
 
 typedef enum AST_NODE_ENUM {

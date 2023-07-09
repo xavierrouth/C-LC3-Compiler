@@ -170,7 +170,7 @@ static token_enum char_to_token_type(char c) {
         case '?': return T_TERNARY;
         case ':': return T_COLON;
     }
-    return T_BASE;
+    return T_INVALID;
 }
 
 static void move_to_str_buffer(char* contents, int len) {
