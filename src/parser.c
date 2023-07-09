@@ -29,11 +29,13 @@ static void end_parse() {
         return;
     }
     // Just the first error:
+    /**
     if (error_handler.num_errors > 0)
         print_error(error_handler.errors[0]);
-    //for (int i = 0; i < error_handler.num_errors; i++) {
-    //    print_error(error_handler.errors[i]);
-    //}
+    */
+    for (int i = 0; i < error_handler.num_errors; i++) {
+        print_error(error_handler.errors[i]);
+    }
     for (int i = 0; i < error_handler.num_warnings; i++) {
         //print_error(error_handler.warnings[i]);
     }
@@ -487,8 +489,9 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
             parser_error_t error = {
                 .prev_token = previous_token(),
                 .invalid_token = op_token, 
-                .type = ERROR_MISSING_EXPRESSION
+                .type = ERROR_MISSING_SEMICOLON
             };
+            //error_handler.in_construction = error; Not actaully needed 
             report_error(error);
             // Probably should skip the entire expression.
             skip_statement();
@@ -522,7 +525,7 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
         parser_error_t error = {
             .prev_token = previous_token(),
             .invalid_token = op_token, 
-            .type = ERROR_MISSING_EXPRESSION
+            .type = ERROR_MISSING_SOMETHING
         };
         report_error(error);
         // Probably should skip the entire expression.

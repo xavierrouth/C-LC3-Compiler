@@ -69,6 +69,13 @@ static char skip() {
     return c;
 }
 
+static void next_line() {
+    char c = next();
+    while (!(c == '\n' || c == '\r')) {
+        c = next();
+    }
+}
+
 static int scan_symbol(char c) {
     int length = 0;
     while (isalpha(c) || isdigit(c) || '_' == c) {
@@ -274,7 +281,8 @@ token_t get_token() {
                 else if (c == '/') {
                     move_to_str_buffer(contents, 2);
                     token.kind = T_COMMENT;
-                    return token;
+                    next_line();
+                    return get_token();
                 }
                 else {
                     putback(c);

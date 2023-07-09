@@ -26,6 +26,7 @@ typedef struct PARSER_ERROR_STRUCT {
         ERROR_MISSING_TOKEN,
         ERROR_MISSING_SEMICOLON,
         ERROR_MISSING_EXPRESSION,
+        ERROR_MISSING_SOMETHING,
         ERROR_GENERAL,
     } type;
 } parser_error_t;
@@ -33,6 +34,7 @@ typedef struct PARSER_ERROR_STRUCT {
 typedef struct PARSER_ERROR_HANDLER {
     parser_error_t errors[8];
     parser_error_t warnings[8];
+    parser_error_t in_construction; // We are trying to find out more information abotu this error!
     int16_t num_errors;
     int16_t num_warnings;
     bool abort;

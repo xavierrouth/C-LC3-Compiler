@@ -70,8 +70,8 @@ l_every_token(const MunitParameter params[], void* data) {
         T_RBRACKET,
         T_COLON,
         T_COMMA,
-        T_SEMICOLON,
-        T_COMMENT
+        T_SEMICOLON //,
+        //T_COMMENT
     };
 
     int i = 0;
