@@ -42,7 +42,7 @@ static uint16_t get_empty_reg() {
             return i;
         }
     }
-    emitf("No empty registers, please write a shorter expression.\n");
+    printf("No empty registers, please write a shorter expression.\n");
     return -1; // Will j break I guess.
 }
 
@@ -62,6 +62,7 @@ static uint32_t emit_condition_node(ast_node_t node_h) {
     struct AST_NODE_STRUCT node = ast_node_data(node_h);
 
     int32_t right = emit_expression_node(node.as.expr.binary.right);
+    state.regfile[right] = USED;
     int32_t left = emit_expression_node(node.as.expr.binary.left);
 
     state.regfile[right] = UNUSED;
@@ -102,8 +103,8 @@ static uint32_t emit_condition_node(ast_node_t node_h) {
         }
 
     }
-    state.regfile[left] = USED;
-    return left;
+    state.regfile[ret] = USED;
+    return ret;
 }
 
 // Sethi-Ullman Register Allocation for the expression rooted at this node.
@@ -133,7 +134,6 @@ static int emit_expression_node(ast_node_t node_h) {
                     r1 = emit_expression_node(node.as.expr.binary.right);
                     emitf("ADD R%d, R%d, #%d\n", r1, r1, left.as.expr.literal.value);
                     state.regfile[r1] = USED;
-                    
                 }
                 else if (right.type == A_INTEGER_LITERAL && right.as.expr.literal.value <= 15) {
                     r1 = emit_expression_node(node.as.expr.binary.left);
@@ -249,7 +249,8 @@ static int emit_expression_node(ast_node_t node_h) {
 }
 
 void emit_ast_node(ast_node_t node_h) {
-    static uint32_t if_counter = 0;
+    static uint16_t if_counter = 0;
+    static uint16_t while_counter = 0;
     if (node_h == -1) {
         return;
     }
@@ -289,6 +290,21 @@ void emit_ast_node(ast_node_t node_h) {
             emitf("STR R%d, R5, #3 ; Write return value, always R5 + 3\n", reg);
             // Need to know what funciton we are returning from somehow.
             emitf("BRnzp %s_teardown \n", current_function_name);
+            return;
+        }
+        case A_WHILE_STMT: {
+            state.regfile[0] = UNUSED;
+            state.regfile[1] = UNUSED;
+            state.regfile[2] = UNUSED;
+            state.regfile[3] = UNUSED;
+            emitf("while_stmt%d\n", while_counter);
+            int32_t r_condition = emit_expression_node(node.as.stmt._while.condition);
+            emitf("\n");
+            emitf("AND R%d, R%d, R%d  ; Load condition expr result into NZP\n", r_condition, r_condition, r_condition);
+            emitf("BRnz while_stmt%d_end ; If false, skip over loop body\n", while_counter);
+            emit_ast_node(node.as.stmt._while.body);
+            emitf("BRnzp while_stmt%d ; Test loop condition again \n", while_counter);
+            emitf("while_stmt%d_end\n", while_counter++);
             return;
         }
         case A_IF_STMT: {
@@ -417,7 +433,7 @@ void emit_ast_node(ast_node_t node_h) {
                 int reg = emit_expression_node(node.as.var_decl.initializer);
                 symbol_table_entry_t symbol = symbol_table_search(var_decl_scopes[node_h], node.as.var_decl.identifier);
                 
-                emitf("STR R%d, R5, #%d ; Initialize \"%s\" \n", reg, symbol.offset, node.as.var_decl.identifier);
+                emitf("STR R%d, R5, #%d ; Initialize \"%s\" \n", reg, -1 * symbol.offset, node.as.var_decl.identifier);
                 state.regfile[reg] = UNUSED;
             }
             emitf("\n");

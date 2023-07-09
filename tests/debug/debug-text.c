@@ -1,7 +1,15 @@
-int main() {
-    //int a = 2 + 3 63456834590
-    while (1) {
-        a++;
+int mul(int a, int b) {
+    int counter = 0;
+    int product = 0;
+    while (b > counter) {
+        counter = counter + 1;
+        product = product + a;
     }
-    
+    return product;
+}
+
+int main() {
+    int c = 0;
+    c = mul(7, 11);
+    return c;
 }

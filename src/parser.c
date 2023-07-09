@@ -689,8 +689,6 @@ static ast_node_t parse_compound_statement() {
         }
     }
 
-    end_parse();
-
     eat_token(T_RBRACE);
     ast_node_t node = ast_compound_stmt_init(statements, NEWSCOPE);
     return node;
