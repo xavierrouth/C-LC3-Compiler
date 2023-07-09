@@ -24,7 +24,7 @@ void print_line(int line, const char* file_buffer, int buffer_size) {
                     break;
                 }
             }
-            printf("Line %d: \"%.*s\"\n", line, (j-i), &file_buffer[i]);
+            printf("Line %d | %.*s\n", line, (j-i), &file_buffer[i]);
             break;
         }
         if (file_buffer[i] == '\n') {

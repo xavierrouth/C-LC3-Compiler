@@ -56,26 +56,24 @@ static void report_warning(parser_error_t error) {
 
 static void print_error(parser_error_t error) {
     token_t previous = error.prev_token;
+    size_t len = strlen("Line # | ");
     switch (error.type) {
         
         case ERROR_MISSING_SEMICOLON: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected semicolon.\n");
             print_line(previous.debug_info.row, parser.source, parser.source_size);
-            size_t len = strlen("Line #: ") + 1;
             printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_MISSING_EXPRESSION: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected an expression.\n");
             print_line(previous.debug_info.row, parser.source, parser.source_size);
-            size_t len = strlen("Line #: ") + 1;
             printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         default: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Something is wrong!.\n");
             print_line(error.prev_token.debug_info.row, parser.source, parser.source_size);
-            size_t len = strlen("Line #: ") + 1;
             printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
