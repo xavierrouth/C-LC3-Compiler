@@ -54,22 +54,22 @@ void emit_ast(ast_node_t root) {
 // TODO: Make this better:
 static char* current_function_name;
 
-static int emit_expression_node(ast_node_t node_h);
+static int16_t emit_expression_node(ast_node_t node_h);
 
 // TODO: Optimization
 // If the result is unused We can greatly simplify this by just modifying the nzp in the if statement.
-static uint32_t emit_condition_node(ast_node_t node_h) {
+static int16_t emit_condition_node(ast_node_t node_h) {
     struct AST_NODE_STRUCT node = ast_node_data(node_h);
 
-    int32_t right = emit_expression_node(node.as.expr.binary.right);
+    int16_t right = emit_expression_node(node.as.expr.binary.right);
     state.regfile[right] = USED;
-    int32_t left = emit_expression_node(node.as.expr.binary.left);
+    int16_t left = emit_expression_node(node.as.expr.binary.left);
 
     state.regfile[right] = UNUSED;
     state.regfile[left] = UNUSED;
 
-    int32_t ret = left;
-    int32_t scratch = right;
+    int16_t ret = left;
+    int16_t scratch = right;
 
     // Store result in left always.
     switch (node.as.expr.binary.type) {
@@ -108,7 +108,7 @@ static uint32_t emit_condition_node(ast_node_t node_h) {
 }
 
 // Sethi-Ullman Register Allocation for the expression rooted at this node.
-static int emit_expression_node(ast_node_t node_h) {
+static int16_t emit_expression_node(ast_node_t node_h) {
     // TODO: Add immediates.
     struct AST_NODE_STRUCT node = ast_node_data(node_h);
 
@@ -117,7 +117,7 @@ static int emit_expression_node(ast_node_t node_h) {
         struct AST_NODE_STRUCT right = ast_node_data(node.as.expr.binary.right);
         switch (node.as.expr.binary.type) {
             case OP_ASSIGN: {
-                int32_t reg = emit_expression_node(node.as.expr.binary.right);
+                int16_t reg = emit_expression_node(node.as.expr.binary.right);
 
                 //struct AST_NODE_STRUCT child = ast_node_data(node.as.)
                 symbol_table_entry_t symbol = symbol_table_search(symbol_ref_scopes[node.as.expr.binary.left], left.as.expr.symbol.identifier);
@@ -251,6 +251,7 @@ static int emit_expression_node(ast_node_t node_h) {
 void emit_ast_node(ast_node_t node_h) {
     static uint16_t if_counter = 0;
     static uint16_t while_counter = 0;
+    static uint16_t for_counter = 0;
     if (node_h == -1) {
         return;
     }
@@ -297,14 +298,34 @@ void emit_ast_node(ast_node_t node_h) {
             state.regfile[1] = UNUSED;
             state.regfile[2] = UNUSED;
             state.regfile[3] = UNUSED;
-            emitf("while_stmt%d\n", while_counter);
+            emitf("while_loop%d\n", while_counter);
             int32_t r_condition = emit_expression_node(node.as.stmt._while.condition);
             emitf("\n");
             emitf("AND R%d, R%d, R%d  ; Load condition expr result into NZP\n", r_condition, r_condition, r_condition);
-            emitf("BRnz while_stmt%d_end ; If false, skip over loop body\n", while_counter);
+            emitf("BRnz while_loop%d_end ; If false, skip over loop body\n", while_counter);
             emit_ast_node(node.as.stmt._while.body);
-            emitf("BRnzp while_stmt%d ; Test loop condition again \n", while_counter);
-            emitf("while_stmt%d_end\n", while_counter++);
+            emitf("BRnzp while_loop%d ; Test loop condition again \n", while_counter);
+            emitf("while_loop%d_end\n", while_counter++);
+            return;
+        }
+        case A_FOR_STMT: {
+            state.regfile[0] = UNUSED;
+            state.regfile[1] = UNUSED;
+            state.regfile[2] = UNUSED;
+            state.regfile[3] = UNUSED;
+            emitf("; Initialization Statement: \n");
+            emit_ast_node(node.as.stmt._for.initilization);
+            emitf("for_loop%d\n", while_counter);
+            emitf("; Condition Expression: \n");
+            int32_t r_condition = emit_expression_node(node.as.stmt._for.condition);
+            emitf("\n");
+            emitf("AND R%d, R%d, R%d  ; Load condition expr result into NZP\n", r_condition, r_condition, r_condition);
+            emitf("BRnz for_loop%d_end ; If false, skip over loop body\n", for_counter);
+            emit_ast_node(node.as.stmt._for.body);
+            emitf("; Increment Expression: \n");
+            emit_ast_node(node.as.stmt._for.update);
+            emitf("BRnzp for_loop%d ; Test loop condition again \n", for_counter);
+            emitf("for_loop%d_end\n", for_counter++);
             return;
         }
         case A_IF_STMT: {
@@ -312,7 +333,7 @@ void emit_ast_node(ast_node_t node_h) {
             state.regfile[1] = UNUSED;
             state.regfile[2] = UNUSED;
             state.regfile[3] = UNUSED;
-            int32_t r_condition = emit_expression_node(node.as.stmt._if.condition);
+            int16_t r_condition = emit_expression_node(node.as.stmt._if.condition);
             emitf("\n");
             emitf("AND R%d, R%d, R%d  ; Load condition expr result into NZP\n", r_condition, r_condition, r_condition);
             // Else Statement:

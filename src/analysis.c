@@ -60,7 +60,9 @@ void analyze_ast_node(ast_node_t node_h) {
     switch(node.type) {      
         case A_COMPOUND_STMT: {
             if (node.as.stmt.compound.scope_flag == NEWSCOPE) {
+                uint16_t parent_scope = curr_scope();
                 enter_scope();
+                var_offsets[curr_scope()] = var_offsets[parent_scope];
             }
             break;
         }
@@ -82,7 +84,9 @@ void analyze_ast_node(ast_node_t node_h) {
         }
         // For statements have there own scope for vairables defined in them. They also have a child scope that is the compound statement / body.
         case A_FOR_STMT: {
+            uint16_t parent_scope = curr_scope();
             enter_scope();
+            var_offsets[curr_scope()] = var_offsets[parent_scope];
             break;
         }
         case A_SYMBOL_REF: {

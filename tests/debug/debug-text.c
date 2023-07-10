@@ -1,8 +1,6 @@
 int mul(int a, int b) {
-    int counter = 0;
     int product = 0;
-    while (b > counter) {
-        counter = counter + 1;
+    for (int i = 0; b > i; i = i + 1) {
         product = product + a;
     }
     return product;
@@ -10,6 +8,6 @@ int mul(int a, int b) {
 
 int main() {
     int c = 0;
-    c = mul(7, 11);
+    c = mul(7, 12);
     return c;
 }

@@ -559,11 +559,40 @@ static ast_node_t parse_return_statement() {
     return node;
 }
 
+// Eats semicolon
+static ast_node_t parse_for_init_clause() {
+    type_info_t type_info = parse_declaration_specifiers(); 
+    // TODO: Make sure these are only auto, register, and a type.
+
+    if (type_info.type != NOTYPE) {
+        if (expect_token(T_IDENTIFIER)) {
+            token_t id_token = eat_token(T_IDENTIFIER);
+            return parse_var_declaration(id_token, type_info); // This eats semicolon
+        }
+    }
+    
+    //else go into pratt parsing():
+    
+    ast_node_t expr_stmt = parse_expression(0);
+    eat_token(T_SEMICOLON);
+    return expr_stmt;
+}
+
 static ast_node_t parse_for_statement() {
-    // TODO: Implement this
     eat_token(T_FOR);
-    eat_token(T_FOR);
-    return -1;
+    eat_token(T_LPAREN);
+    // TODO: Only certain declaration specifiers are allowed.
+    ast_node_t initializer = parse_for_init_clause(); // May be a expression or a declaration
+    ast_node_t condition = parse_expression(0);
+    if (condition == -1) {
+        condition = ast_int_literal_init(1);
+    }
+    eat_token(T_SEMICOLON);
+    ast_node_t update = parse_expression(0);
+    eat_token(T_RPAREN);
+    ast_node_t body = parse_compound_statement();
+    ast_node_t node = ast_for_stmt_init(initializer, condition, update, body);
+    return node;
 }
 
 static ast_node_t parse_while_statement() {
@@ -610,6 +639,8 @@ static ast_node_t parse_if_statement() {
     ast_node_t node = ast_if_stmt_init(condition, if_stmt, else_stmt);
     return node;
 }
+
+
 
 // Parse a statement that is in a function.
 static ast_node_t parse_statement() {

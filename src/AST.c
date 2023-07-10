@@ -133,6 +133,16 @@ ast_node_t ast_if_stmt_init(ast_node_t condition, ast_node_t if_stmt, ast_node_t
     return node;
 }
 
+ast_node_t ast_for_stmt_init(ast_node_t intializer, ast_node_t condition, ast_node_t update, ast_node_t body) {
+    ast_node_t node = ast_node_init(A_FOR_STMT);
+    ast_instances[node].as.stmt._for.initilization = intializer;
+    ast_instances[node].as.stmt._for.condition = condition;
+    ast_instances[node].as.stmt._for.update = update;
+    ast_instances[node].as.stmt._for.body = body;
+    return node;
+}
+
+
 // -1 for no initializer
 ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, char* identifier) {
     ast_node_t node = ast_node_init(A_VAR_DECL);
