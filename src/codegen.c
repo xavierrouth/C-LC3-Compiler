@@ -181,8 +181,7 @@ static int16_t emit_expression_node(ast_node_t node_h) {
             case OP_NOTEQUALS:
             case OP_GT_EQUAL:
             case OP_LT_EQUAL:
-                return emit_condition_node(node_h);
-            
+                return emit_condition_node(node_h);  
         }
     }
     else if (node.type == A_UNARY_EXPR) {
@@ -246,6 +245,8 @@ static int16_t emit_expression_node(ast_node_t node_h) {
         }
         return r1;
     }
+    printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Unsupported C feature encountered, please rewrite your code to not use this feature.\n");
+    print_ast_node(node_h, 2);
 }
 
 void emit_ast_node(ast_node_t node_h) {

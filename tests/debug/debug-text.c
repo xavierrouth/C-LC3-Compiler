@@ -1,6 +1,6 @@
 int mul(int a, int b) {
     int product = 0;
-    for (int i = 0; b > i; i = i + 1) {
+    for (int i = 0; b > i; i++) {
         product = product + a;
     }
     return product;
