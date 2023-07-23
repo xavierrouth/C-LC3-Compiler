@@ -11,15 +11,18 @@
 int main(int argc, char **argv) {
     //FILE* f = fopen("../src/test1.c", "rb");
     FILE* f;
-    const char* path = argv[1];
+
+    // Rework CLI
+    const char* in_path = argv[1];
+    const char* out_path = argv[2];
     //const char * path = "../tests/lexer/simple-1.c";
 
-    if ((f = fopen(path, "rb")) == NULL) { 
+    if ((f = fopen(in_path, "rb")) == NULL) { 
         printf("Invalid input file path.\n");
         return 1;
     }
 
-    set_out_file("../out/out.asm");
+    set_out_file(out_path);
 
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
