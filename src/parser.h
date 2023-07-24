@@ -27,6 +27,7 @@ typedef struct PARSER_ERROR_STRUCT {
         ERROR_MISSING_SEMICOLON,
         ERROR_MISSING_EXPRESSION,
         ERROR_MISSING_SOMETHING,
+        ERROR_UNEXPECTED_TOKEN,
         ERROR_GENERAL,
     } type;
 } parser_error_t;

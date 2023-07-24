@@ -56,13 +56,14 @@ static void report_warning(parser_error_t error) {
 
 static void print_error(parser_error_t error) {
     token_t previous = error.prev_token;
-    size_t len = strlen("Line # | ");
+    size_t token_length = strlen(previous.contents);
+    size_t len = strlen("Line # |");
     switch (error.type) {
         
         case ERROR_MISSING_SEMICOLON: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected semicolon.\n");
             print_line(previous.debug_info.row, parser.source, parser.source_size);
-            printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            printf_indent(previous.debug_info.col + token_length + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_MISSING_EXPRESSION: {
@@ -71,8 +72,14 @@ static void print_error(parser_error_t error) {
             printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
+        case ERROR_UNEXPECTED_TOKEN: {
+            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Unexpected token.\n");
+            print_line(error.invalid_token.debug_info.row, parser.source, parser.source_size);
+            printf_indent(error.invalid_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            return;
+        }
         default: {
-            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Something is wrong!.\n");
+            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Something is wrong!\n");
             print_line(error.prev_token.debug_info.row, parser.source, parser.source_size);
             printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
@@ -182,7 +189,7 @@ static token_t eat_token(token_enum type)
             parser_error_t error = {
                 .invalid_token = t,
                 .prev_token = previous_token(),
-                .type = ERROR_GENERAL
+                .type = ERROR_UNEXPECTED_TOKEN
             };
             report_error(error);
             
@@ -243,8 +250,6 @@ static void init_infix_binding_power() {
     infix_binding_power[OP_BITXOR] = (bp_pair) {.l = 8, .r = 9};
 
     infix_binding_power[OP_ASSIGN] = (bp_pair) {.l = 5, .r = 4};
-
-    
 }
 
 static void init_prefix_binding_power() {
@@ -539,7 +544,7 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
         parser_error_t error = {
             .prev_token = previous_token(),
             .invalid_token = op_token, 
-            .type = ERROR_MISSING_SOMETHING
+            .type = ERROR_UNEXPECTED_TOKEN
         };
         report_error(error);
         // Probably should skip the entire expression.
@@ -835,6 +840,7 @@ static ast_node_t parse_translation_unit() {
 
 void build_ast() {
     parser.ast_root = parse_translation_unit();
+    end_parse();
     return;
 }
 
