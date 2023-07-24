@@ -37,3 +37,6 @@
 /misc
 /build
 /out
+
+# Module Build
+lc3tools/build
