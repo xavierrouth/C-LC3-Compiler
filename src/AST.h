@@ -72,6 +72,7 @@ typedef enum AST_OP_ENUM {
     OP_ASSIGN_BITOR, // '|='
 
     // Punctuation
+    OP_CALL,
     OP_LPAREN, // '('
     OP_RPAREN, // ')'
     OP_LBRACKET, // '['

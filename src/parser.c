@@ -68,8 +68,8 @@ static void print_error(parser_error_t error) {
         }
         case ERROR_MISSING_EXPRESSION: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected an expression.\n");
-            print_line(previous.debug_info.row, parser.source, parser.source_size);
-            printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(error.invalid_token.debug_info.row, parser.source, parser.source_size);
+            printf_indent(error.invalid_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_UNEXPECTED_TOKEN: {
@@ -257,9 +257,11 @@ static void init_prefix_binding_power() {
     prefix_binding_power[OP_SUB] = 28;
     prefix_binding_power[OP_BITAND] = 28;
     prefix_binding_power[OP_INCREMENT] = 28;
+    prefix_binding_power[OP_DECREMENT] = 28;
 }
 
 static void init_postfix_binding_power() {
+    postfix_binding_power[OP_LPAREN] = 30;
     postfix_binding_power[OP_INCREMENT] = 28;
     postfix_binding_power[OP_DECREMENT] = 28;
     // Array access, function call, struct member access, ptr dereference
@@ -413,16 +415,20 @@ static ast_node_t parse_function_call(ast_node_t symbol_ref) {
     eat_token(T_LPAREN);
     ast_node_vector arguments = ast_node_vector_init(4);
     
-    // Need to make sure NOT to eat the last , operator.
-    // This is difficult!
-    while (true) {
-        ast_node_t arg = parse_expression(0);
-        ast_node_vector_push(&(arguments), arg);
-        if (!expect_token(T_COMMA)) {
-            // Error Here:
-            break;
+    if (!expect_token(T_RPAREN)) {
+        while (true)  {
+            // TODO: Disable parsing comma operators in this. (pass in extra arg to parse_expression)
+            ast_node_t arg = parse_expression(0);
+            ast_node_vector_push(&(arguments), arg);
+            if (!expect_token(T_COMMA)) {
+                // Error Here:
+                
+                break;
+            }
+            else {
+                eat_token(T_COMMA);
+            }
         }
-        eat_token(T_COMMA);
     }
     eat_token(T_RPAREN);
     ast_node_t node = ast_expr_call_init(symbol_ref, arguments);
@@ -437,10 +443,11 @@ static ast_node_t parse_symbol_ref() {
     ast_node_t symbol = ast_expr_symbol_init(id.contents);
 
     // Function Call
+    /**
     if (expect_token(T_LPAREN)) {
         ast_node_t func = parse_function_call(symbol); // Eats parens.
         return func;
-    }
+    } */
     // Just a symbol ref
     return symbol;
 }
@@ -488,7 +495,7 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
     // Infix Expressions:
     /** Consume tokens until there is a token whose binding power is equal or lower than rbp*/
     while (true) {
-        // These are things that definetly mark the end of an expression.
+        // These are things that definetly mark the end of an expression, some other rule needs to consume them
         if (expect_token(T_SEMICOLON) || expect_token(T_RPAREN)) {
             break;
         }
@@ -517,15 +524,24 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
             return -1;
         }
 
+        // Handle 
         if (is_postfix(op_type)) {
             uint16_t op_power = postfix_binding_power[op_type];
             if (op_power < min_binding_power) {
                 break;
             }
-            next_token();
+            
+            if (op_type == OP_LPAREN) {
+                // Function Call, eats parens
+                left = parse_function_call(left);
+            }
+            else {
+                next_token();
+                left = ast_unary_op_init(op_type, left, POSTFIX);
+            }
             // TODO: Test for '['
             //ast_node_t child = parse_expression(0);
-            left = ast_unary_op_init(op_type, left, POSTFIX);
+            
             continue;
         }
 
