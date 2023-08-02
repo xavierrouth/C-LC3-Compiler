@@ -7,22 +7,60 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <argp.h>
+
+const char* argp_program_version = "1.0";
+const char* argp_program_bug_address = "<xrouth2@illinois.edu>";
+
+static char doc[] = "Your program description.";
+static char args_doc[] = "[main.c]...";
+
+static struct argp_option options[] = { 
+    { "input", 'i', "FILE", 0, "Input path.", 0},
+    { "output", 'o', "FILE", 0, "Output path", 0},
+    { "verbose", 'v', 0, 0, "Produce verbose output", 0},
+    //{ "print-ast", 0, 0},
+    { 0 } 
+};
+
+struct arguments {
+    char* input_path;
+    int silent, verbose;
+    char* output_path;
+};
+
+static error_t parse_opt(int key, char *arg, struct argp_state *state) {
+    struct arguments *arguments = state->input;
+    switch (key) {
+        case 'v': arguments->verbose = 1; break;
+        case 'i': arguments->input_path = arg; break;
+        case 'o': arguments->output_path = arg; break;
+    case ARGP_KEY_ARG: return 0;
+    default: return ARGP_ERR_UNKNOWN;
+    }   
+    return 0;
+}
+
+static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0};
 
 int main(int argc, char **argv) {
-    //FILE* f = fopen("../src/test1.c", "rb");
     FILE* f;
 
-    // Rework CLI
-    const char* in_path = argv[1];
-    const char* out_path = argv[2];
-    //const char * path = "../tests/lexer/simple-1.c";
+    struct arguments arguments;
 
-    if ((f = fopen(in_path, "rb")) == NULL) { 
+    /* Default args:*/
+    arguments.input_path = "../tests/debug/debug-text.c";
+    arguments.output_path = "../out/out.asm";
+    arguments.verbose = 0;
+
+    argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+    if ((f = fopen(arguments.input_path, "rb")) == NULL) { 
         printf("Invalid input file path.\n");
         return 1;
     }
 
-    set_out_file(out_path);
+    set_out_file(arguments.output_path);
 
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
@@ -45,36 +83,19 @@ int main(int argc, char **argv) {
 
     init_lexer(file_buffer, fsize);
 
-    printf("Done Lexering\n");
+    if (arguments.verbose) printf("Done Lexering\n");
+    
     init_parser(file_buffer, fsize);
-    printf("Done Init Parser\n");
+    if (arguments.verbose) printf("Done Init Parser\n");
     build_ast();
 
-    printf("Done Building AST\n");
+    if (arguments.verbose) printf("Done Building AST\n");
 
     ast_node_t root = get_root();    
 
-    /**
-    for (int i = 0; i < 5; i++) {
-        printf("%d\n", root->as.program.body.nodes[i]->as.literal.value);
-    }
-    */
-    /**
-    while ((root = root->data.stmt.next) != NULL) {
-        printf("%d\n", root->data.value);
-    }
-    */
-    /*
-    print_ast_node(root, 0);
-    print_ast_node(root->as.program.body.nodes[0], 1);
-    print_ast_node(root->as.program.body.nodes[1], 1); 
-    print_ast_node(root->as.program.body.nodes[1]->as.var_decl.initializer, 2); 
-    print_ast_node(root->as.program.body.nodes[2], 1); 
-    */
-
-    print_ast(root);
+    if (arguments.verbose) print_ast(root);
     analysis(root);
-    printf("Beginning Code gen:\n");
+    if (arguments.verbose) printf("Beginning Code gen:\n");
     emit_ast(root);
     free_ast(root);
 
