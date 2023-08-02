@@ -262,8 +262,11 @@ static void init_prefix_binding_power() {
 
 static void init_postfix_binding_power() {
     postfix_binding_power[OP_LPAREN] = 30;
-    postfix_binding_power[OP_INCREMENT] = 28;
-    postfix_binding_power[OP_DECREMENT] = 28;
+    postfix_binding_power[OP_LBRACKET] = 30;
+    postfix_binding_power[OP_INCREMENT] = 30;
+    postfix_binding_power[OP_DECREMENT] = 30;
+    postfix_binding_power[OP_ACCESS] = 30;
+    postfix_binding_power[OP_PTR_ACCESS] = 30;
     // Array access, function call, struct member access, ptr dereference
 }
 

@@ -17,7 +17,6 @@ typedef enum TOKEN_KIND_ENUM {
     // ==== Operators ====
     T_ASSIGN, // = 
 
-
     T_ADD, // '+'
     T_SUB, // '-'
     T_MUL, // '*'
@@ -47,6 +46,7 @@ typedef enum TOKEN_KIND_ENUM {
     T_NOTEQUALS, // '!='
     T_EQUALS, // '==' 
     
+    T_DOT, // '.'
     T_ARROW, // '->'
     T_TERNARY, // '?'
 

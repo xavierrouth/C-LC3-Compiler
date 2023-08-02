@@ -176,6 +176,7 @@ static token_enum char_to_token_type(char c) {
         case '~': return T_BITFLIP;
         case '?': return T_TERNARY;
         case ':': return T_COLON;
+        case '.': return T_DOT;
     }
     return T_INVALID;
 }
@@ -416,6 +417,7 @@ token_t get_token() {
             case '[':
             case ']':
             case '?':
+            case '.':
                 token.kind = char_to_token_type(c);
                 move_to_str_buffer(contents, 1);
                 return token;

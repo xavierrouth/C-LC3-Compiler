@@ -81,6 +81,9 @@ typedef enum AST_OP_ENUM {
     OP_COLON, // ':'
     OP_COMMA, // ','
     OP_SEMICOLON, // ';'
+    
+    OP_ACCESS, // '.'
+    OP_PTR_ACCESS // '->'
 } ast_op_enum;
 
 typedef enum AST_NODE_ENUM {

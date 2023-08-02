@@ -73,14 +73,6 @@ int main(int argc, char **argv) {
     file_buffer[fsize] = 0; //Set null terminator
 
     // Init Lexer
-    
-    init_lexer(file_buffer, fsize);
-    token_t t = get_token();
-    while(t.kind != T_END) {
-        t = get_token();
-        //print_token(&t);
-    }
-
     init_lexer(file_buffer, fsize);
 
     if (arguments.verbose) printf("Done Lexering\n");

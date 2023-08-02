@@ -1,3 +1,3 @@
 int main() {
-    return test(2, );
+    return test(2, 3)((3));
 }
