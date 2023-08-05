@@ -81,12 +81,28 @@ typedef enum TOKEN_KIND_ENUM {
     T_COMMENT,
 
     // ==== Keywords ====
+    T_SIZEOF,
+
     // Types
-    T_INT, // Only one supported
+    T_INT, 
     T_VOID, 
+    T_CHAR,
 
     // Type declaration Describers
     T_CONST,
+    T_VOLTAILE,
+    T_EXTERN,
+    T_STATIC,
+    T_AUTO,
+    T_REGISTER,
+    T_EXTERN,
+    T_TYPEDEF,
+    T_UNSIGNED,
+    T_SIGNED,
+    T_FLOAT,
+    T_DOUBLE,
+    T_LONG,
+    T_SHORT,    
 
     // Conditionals
     T_GOTO,
@@ -100,20 +116,19 @@ typedef enum TOKEN_KIND_ENUM {
 
     T_CASE,
 
-    // Structs
-    T_STRUCT,
-    T_TYPEDEF,
-    T_UNION,
-
-    T_RETURN,
-    T_FOR,
-    T_SIZEOF,
-    T_STATIC,
+    // Loops:
     T_WHILE,
+    T_FOR,
+    
+    // Structs
+    
+    T_STRUCT,
+    T_UNION,
     T_ENUM,
-    T_EXTERN,
-    T_CHAR,
 
+    // Return
+    T_RETURN,
+    
     // Helper
     T_START,
     T_END

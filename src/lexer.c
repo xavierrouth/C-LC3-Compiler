@@ -1,6 +1,9 @@
 #include "lexer.h"
+#include "util.h"
+
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
 
 static lexer_t Lexer;
 
@@ -88,10 +91,24 @@ static int scan_symbol(char c) {
 
 static int scan_int(char c) {
     int length = 0;
+    static float_error = 0;
     while (isdigit(c)) {
         c = next();
         length++;
     }
+    if (c == '.') {
+        // Lexer Error:
+        if (!float_error) {
+            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Floats not supported on LC3 architecture, rounding down.\n");
+            float_error = 1;
+        }
+        
+        c = next();
+        while (isdigit(c)) {
+            c = next();
+        }
+    }
+    
     putback(c);
     return length;
 }
@@ -119,6 +136,9 @@ static token_enum keyword(char *s) {
 		}
 		break;
     */
+    case 'a':
+        if (!strcmp(s, "auto")) return T_AUTO;
+		break;
 	case 'b':
 		if (!strcmp(s, "break")) return T_BREAK;
 		break;
@@ -151,6 +171,9 @@ static token_enum keyword(char *s) {
 		if (!strcmp(s, "static")) return T_STATIC;
 		if (!strcmp(s, "switch")) return T_SWITCH;
 		break;
+    case 't':
+        if (!strcmp(s, "typedef")) return T_TYPEDEF;
+        break;
 	case 'v':
 		if (!strcmp(s, "void")) return T_VOID;
 		break;
