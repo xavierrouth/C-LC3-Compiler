@@ -484,6 +484,20 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
     else if (expect_token(T_LPAREN)) {
         eat_token(T_LPAREN);
         left = parse_expression(0);
+        // Don't allow for empty paren expressions
+        if (left == -1) {
+        
+            parser_error_t error = {
+                .prev_token = previous_token(),
+                .invalid_token = op_token, 
+                .type = ERROR_MISSING_EXPRESSION
+            };
+            report_error(error);
+            // Probably should skip the entire expression.
+            skip_statement();
+            
+            return -1;
+        }
         eat_token(T_RPAREN);
     }
     else if (is_prefix(op_type)) {
