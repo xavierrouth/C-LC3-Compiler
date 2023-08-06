@@ -1,6 +1,8 @@
+int main(int*a, int b) {
+    int c = c + 3;
+    return 0;
+}
 
-int (*((* a)[3])[4])[5];
-int * b[3];
 
 
 

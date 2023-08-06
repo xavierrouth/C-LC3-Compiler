@@ -210,30 +210,24 @@ static int16_t emit_expression_node(ast_node_t node_h) {
                 int r = get_empty_reg();
 
                 // TODO: Global Symbols (LEA)
+
                 if (symbol.type == PARAMETER_ST_ENTRY) { // Is a parameter
-                    emitf("ADD R%d, R5, #%d ; Load parameter \"%s\"\n", r, symbol.offset + 4, symbol.identifier);
+                    // Address of a parameter is just R5 + offset
+                    emitf("ADD R%d, R5, #%d ; Take address of parameter \"%s\"\n", r, symbol.offset + 4, symbol.identifier);
                 }
                 else { // Not a parameter
-                    emitf("ADD R%d, R5, #%d ; Load local variable \"%s\"\n", r, -1 * symbol.offset, symbol.identifier);
+                    // Address of local variable is just R5 + some other offset
+                    emitf("ADD R%d, R5, #%d ; Take address of local variable \"%s\"\n", r, -1 * symbol.offset, symbol.identifier);
                 }
                 return r;
 
             }
             /** Dereference*/
             case OP_MUL: {
-                struct AST_NODE_STRUCT child = ast_node_data(node.as.expr.unary.child);
-                ast_node_t child_h = node.as.expr.unary.child;
-                assert(child.type == A_SYMBOL_REF); // Assert
-                symbol_table_entry_t symbol = symbol_table_search(child.as.expr.symbol.token, symbol_ref_scopes[child_h]);
-                int r = get_empty_reg();
+                uint16_t r = emit_expression_node(node.as.expr.unary.child);
+                // Register contains an address.
 
-                // TODO: Global Symbols 
-                if (symbol.type == PARAMETER_ST_ENTRY) { // Is a parameter
-                    emitf("ADD R%d, R5, #%d ; Load parameter \"%s\"\n", r, symbol.offset + 4, symbol.identifier);
-                }
-                else { // Not a parameter
-                    emitf("ADD R%d, R5, #%d ; Load local variable \"%s\"\n", r, -1 * symbol.offset, symbol.identifier);
-                }
+                emitf("LDR R%d, R%d, #0 ; Dereference register as pointer \n", r);
                 return r;
             }
         }
