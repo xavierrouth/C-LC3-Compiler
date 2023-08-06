@@ -95,7 +95,6 @@ typedef enum TOKEN_KIND_ENUM {
     T_STATIC,
     T_AUTO,
     T_REGISTER,
-    T_EXTERN,
     T_TYPEDEF,
     T_UNSIGNED,
     T_SIGNED,
@@ -133,8 +132,6 @@ typedef enum TOKEN_KIND_ENUM {
     T_START,
     T_END
 } token_enum;
-
-static char buffer[4];
 
 static const char * token_type_to_str(token_enum type) {
     switch(type) {
@@ -179,8 +176,7 @@ static const char * token_type_to_str(token_enum type) {
             break;
     }
 
-    snprintf(buffer, 4, "%d", type);
-    return buffer;
+    return "token_type_to_str failed";
     //"Not printable";
 }
 

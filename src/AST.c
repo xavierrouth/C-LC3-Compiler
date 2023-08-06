@@ -221,6 +221,8 @@ static const char* ast_op_to_str(ast_op_enum type) {
         case OP_BITXOR: return "^";
         case OP_INCREMENT: return "++";
         case OP_DECREMENT: return "--";
+        case OP_DOT: return ".";
+        case OP_ARROW: return "->";
     }
     return "ast_op_to_str unimplemented";
 }

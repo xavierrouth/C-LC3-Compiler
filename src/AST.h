@@ -56,6 +56,7 @@ typedef enum AST_OP_ENUM {
     OP_NOTEQUALS, // '!='
     OP_EQUALS, // '==' 
     
+    OP_DOT, // '.'
     OP_ARROW, // '->'
     OP_TERNARY, // '?'
 
@@ -82,8 +83,7 @@ typedef enum AST_OP_ENUM {
     OP_COMMA, // ','
     OP_SEMICOLON, // ';'
     
-    OP_ACCESS, // '.'
-    OP_PTR_ACCESS // '->'
+
 } ast_op_enum;
 
 typedef enum AST_NODE_ENUM {
@@ -131,7 +131,7 @@ struct AST_NODE_STRUCT {
                 ast_node_vector arguments; // expressions.
             } call;
             struct { // A reference to an already defined symbol
-                type_enum type;
+                type_info_t type;
                 char* identifier;
             } symbol;
             struct {

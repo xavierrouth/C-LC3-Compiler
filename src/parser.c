@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <assert.h>
 
+#include "util.h"
 #include "parser.h"
 #include "analysis.h"
 
@@ -230,11 +232,16 @@ static bool is_postfix(ast_op_enum op) {
 
 // https://en.cppreference.com/w/c/language/operator_precedence
 static void init_infix_binding_power() {
+    infix_binding_power[OP_DOT] = (bp_pair) {.l = 28, .r = 29};
+    infix_binding_power[OP_ARROW] = (bp_pair) {.l = 28, .r = 29};
+
     infix_binding_power[OP_MUL] = (bp_pair) {.l = 26, .r = 27};
     infix_binding_power[OP_DIV] = (bp_pair) {.l = 26, .r = 27};
     infix_binding_power[OP_MOD] =  (bp_pair) {.l = 26, .r = 27};
+
     infix_binding_power[OP_ADD] = (bp_pair) {.l = 24, .r = 25};
     infix_binding_power[OP_SUB] = (bp_pair) {.l = 24, .r = 25};
+
     infix_binding_power[OP_LEFTSHIFT] = (bp_pair) {.l = 22, .r = 23};
     infix_binding_power[OP_RIGHTSHIFT] = (bp_pair) {.l = 22, .r = 23};
     
@@ -250,12 +257,14 @@ static void init_infix_binding_power() {
     infix_binding_power[OP_BITXOR] = (bp_pair) {.l = 8, .r = 9};
 
     infix_binding_power[OP_ASSIGN] = (bp_pair) {.l = 5, .r = 4};
+    
 }
 
 static void init_prefix_binding_power() {
     prefix_binding_power[OP_ADD] = 28;
     prefix_binding_power[OP_SUB] = 28;
     prefix_binding_power[OP_BITAND] = 28;
+    prefix_binding_power[OP_MUL] = 28;
     prefix_binding_power[OP_INCREMENT] = 28;
     prefix_binding_power[OP_DECREMENT] = 28;
 }
@@ -265,8 +274,7 @@ static void init_postfix_binding_power() {
     postfix_binding_power[OP_LBRACKET] = 30;
     postfix_binding_power[OP_INCREMENT] = 30;
     postfix_binding_power[OP_DECREMENT] = 30;
-    postfix_binding_power[OP_ACCESS] = 30;
-    postfix_binding_power[OP_PTR_ACCESS] = 30;
+    
     // Array access, function call, struct member access, ptr dereference
 }
 
@@ -321,6 +329,7 @@ static ast_op_enum get_op(const token_enum type) {
     case T_RBRACKET: return OP_RBRACKET;
     case T_COLON: return OP_COLON;
     case T_COMMA: return OP_COMMA;
+    case T_DOT: return OP_DOT;
     default:
         return OP_INVALID;
     }
@@ -335,6 +344,7 @@ static ast_node_t parse_declaration();
 
 static ast_node_t parse_expression(uint16_t min_binding_power);
 
+static void parse_declarator(type_info_t* type_info);
 static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info);
 
 // Eats the braces:
@@ -351,10 +361,142 @@ static bool check_missing_expression(ast_node_t expr) {
         report_error(error);
         return true;
     }
-
     return false;
 } 
 
+static void parse_direct_declarator(type_info_t* type_info) {
+    if (expect_token(T_IDENTIFIER)) {
+        type_info->identifier_token = eat_token(T_IDENTIFIER); 
+        return; 
+    }
+    if (expect_token(T_LPAREN)) {
+        eat_token(T_LPAREN);
+        parse_declarator(type_info);
+        eat_token(T_RPAREN);
+        return;
+    }
+
+    
+
+    // Type info needs to have an id populated by now. 
+    /**
+    if (type_info->identifier_token.kind != T_IDENTIFIER) {
+        // TODO: More specific error message here.
+        parser_error_t error = {
+            .invalid_token = get_token(),
+            .prev_token = previous_token(),
+            .type = ERROR_MISSING_EXPRESSION
+        };
+        report_error(error);
+        skip_statement();
+        return;
+    }
+    */
+
+    if (type_info->identifier_token.kind == T_IDENTIFIER) {
+        if (expect_token(T_LBRACKET)) {
+            uint16_t idx = type_info->declarator_part_list_idx;
+            if (type_info->declarator_part_list_idx >= MAX_DECL_PARTS) {
+                // Todo: Make this an error
+                assert("Too many decl parts nested" && 0);
+            }
+            eat_token(T_LBRACKET);
+            // TODO: Support different texpressoins for array sizes
+            token_t array_size_token = eat_token(T_INTLITERAL);
+            uint16_t array_size = atoi(array_size_token.contents);
+            eat_token(T_RBRACKET);
+            
+            type_info->declarator_part_list[idx].type = ARRAY_DECL;
+            type_info->declarator_part_list[idx].array_size = array_size;
+            type_info->declarator_part_list_idx++;
+            eat_token(T_MUL);
+        }
+        // Do other types of identifier things:
+        /** Parse function pointer decl*/
+        // TODO:
+        /**
+        if (expect_token(T_LPAREN)) {
+            eat_token(T_LPAREN);
+
+            eat_token(T_RPAREN);
+        }*/
+        /** 
+         | <direct-declarator> [ {<constant-expression>}? ]
+        | <direct-declarator> ( <parameter-type-list> )
+        | <direct-declarator> ( {<identifier>}* ) // What is this for?
+        */
+        return;
+    }
+
+    parse_direct_declarator(type_info);
+
+    return;
+
+}
+
+static void parse_pointer(type_info_t* type_info) {
+    eat_token(T_MUL);
+    // Parse type qualifier (const or voltaile ptr)
+
+    uint16_t idx = type_info->declarator_part_list_idx;
+    if (type_info->declarator_part_list_idx >= MAX_DECL_PARTS) {
+        // Todo: Make this an error
+        assert("Too many decl parts nested" && 0);
+    }
+    type_info->declarator_part_list[idx].type = POINTER_DECL;
+    type_info->declarator_part_list_idx++;
+
+    if (expect_token(T_MUL)) {
+        parse_pointer(type_info); 
+    }
+
+    return;
+}
+
+// Parse a declarator and add the declarator part to this type_info
+static void parse_declarator(type_info_t* type_info) {
+    if (expect_token(T_MUL)) {
+        parse_pointer(type_info);
+    }
+    
+    parse_direct_declarator(type_info);
+    
+    return;
+}
+
+// returns true 
+static bool parse_declaration_specifier(type_info_t* type_info) {
+    // TODO: Support more decl specifiers
+    if (expect_token(T_INT)) {
+        type_info->specifier_info.is_int = 1;
+        eat_token(T_INT);
+        return true;
+    }
+    if (expect_token(T_VOID)) {
+        type_info->specifier_info.is_void = 1;
+        eat_token(T_VOID);
+        return true; 
+    }
+    if (expect_token(T_CHAR)) {
+        type_info->specifier_info.is_char = 1;
+        eat_token(T_CHAR);
+        return true;
+    }
+    if (expect_token(T_STATIC)) {
+        type_info->specifier_info.is_static = 1;
+        eat_token(T_STATIC);
+        return true;
+    }
+    if (expect_token(T_CONST)) {
+        type_info->specifier_info.is_const = 1;
+        eat_token(T_CONST);
+        return true;
+    }
+    return false;
+
+}
+
+/** Wrapper to loop over declaration specifiers?*/
 static type_info_t parse_declaration_specifiers() {
     // Storage Class:
     // typedef, extern, static, auto, register
@@ -362,50 +504,12 @@ static type_info_t parse_declaration_specifiers() {
     // void, char, short, int, long, float, double, signed, unsigned, struct, union, enum, type_name
     // Type Qualifier:
     // const, volatile
-    token_t t;
     type_info_t type_info = {0};
-    type_info.type = NOTYPE;
-    
-    while((t = next_token()).kind != T_END) {
-        switch (t.kind) {
-            /**
-             * If the token is not a type specifier, then we are done.
-             * We put the token back and return the type info that we have collected so far.
-            */
-            case T_TYPEDEF:
-            case T_EXTERN:
-            case T_STATIC:
-            //case T_AUTO:
-            //case T_REGISTER:
-            case T_VOID:
-                type_info.type = VOID;
-                continue;
-            case T_CHAR:
-            //case T_SHORT:
-            case T_INT:
-                type_info.type = INT;
-                continue;
-            //case T_LONG:
-            //case T_FLOAT:
-            //case T_DOUBLE:
-            //case T_SIGNED:
-            //case T_UNSIGNED:
-            case T_STRUCT:
-            case T_UNION:
-            case T_ENUM:
-                continue;
-            default:
-                // TODO: Better error handling
-                
-                goto end;
-        }
+    while (parse_declaration_specifier(&type_info)) {
+        continue;
     }
-    end: 
-    putback_token(t);
     return type_info;
 }
-
-
 
 static ast_node_t parse_int_literal() {
     token_t t = eat_token(T_INTLITERAL);
@@ -445,13 +549,6 @@ static ast_node_t parse_symbol_ref() {
     // Scope::
     ast_node_t symbol = ast_expr_symbol_init(id.contents);
 
-    // Function Call
-    /**
-    if (expect_token(T_LPAREN)) {
-        ast_node_t func = parse_function_call(symbol); // Eats parens.
-        return func;
-    } */
-    // Just a symbol ref
     return symbol;
 }
 
@@ -588,15 +685,14 @@ static ast_node_t parse_for_init_clause() {
     type_info_t type_info = parse_declaration_specifiers(); 
     // TODO: Make sure these are only auto, register, and a type.
 
-    if (type_info.type != NOTYPE) {
+    if (type_info.specifier_info.is_int || type_info.specifier_info.is_char) {
         if (expect_token(T_IDENTIFIER)) {
             token_t id_token = eat_token(T_IDENTIFIER);
-            return parse_var_declaration(id_token, type_info); // This eats semicolon
+            return parse_declaration(type_info); // This eats semicolon
         }
     }
     
-    //else go into pratt parsing():
-    
+    // Go into pratt parsing:
     ast_node_t expr_stmt = parse_expression(0);
     eat_token(T_SEMICOLON);
     return expr_stmt;
@@ -665,7 +761,6 @@ static ast_node_t parse_if_statement() {
 }
 
 
-
 // Parse a statement that is in a function.
 static ast_node_t parse_statement() {
     // TODO: Error checks:
@@ -690,14 +785,14 @@ static ast_node_t parse_statement() {
     }
 
     // Attempt var declaration/
-    type_info_t type_info = parse_declaration_specifiers(); 
 
-    if (type_info.type != NOTYPE) {
-        if (expect_token(T_IDENTIFIER)) {
-            token_t id_token = eat_token(T_IDENTIFIER);
-            return parse_var_declaration(id_token, type_info); // This eats semicolon
-        }
+    type_info_t type_info = parse_declaration_specifiers(); 
+    
+    if (type_info.specifier_info.is_int || type_info.specifier_info.is_char) {
+        parse_declarator(&type_info);
+        return parse_declaration(type_info);
     }
+
     
     //else go into pratt parsing():
     
@@ -706,8 +801,7 @@ static ast_node_t parse_statement() {
     return expr_stmt;
 }
 
-static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info) {
-
+static ast_node_t parse_declaration(type_info_t type_info) {
     // TODO: Implement multiple variable initialization.
     if (expect_token(T_ASSIGN)) {
         eat_token(T_ASSIGN);
@@ -718,12 +812,12 @@ static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info)
             return -1;
         }
         eat_token(T_SEMICOLON);
-        ast_node_t node = ast_var_decl_init(initializer, type_info, id_token.contents);
+        ast_node_t node = ast_var_decl_init(initializer, type_info, type_info.identifier_token.contents);
         return node;
     }
     else {
         eat_token(T_SEMICOLON); 
-        ast_node_t node = ast_var_decl_init(-1, type_info, id_token.contents);
+        ast_node_t node = ast_var_decl_init(-1, type_info, type_info.identifier_token.contents);
         return node;
     }
 }
@@ -750,8 +844,58 @@ static ast_node_t parse_compound_statement() {
 }
 
 
-static ast_node_t parse_declaration() {
-    // Function definition or declaration
+
+static ast_node_t parse_function_definition(const type_info_t return_type) {
+    // 
+    token_t id_token = return_type.identifier_token;
+
+    eat_token(T_LPAREN);
+    ast_node_t node = -1;
+    // Parse parameters
+
+    // TODO: Support Varags
+    ast_node_vector parameters = ast_node_vector_init(4);
+    
+    // Parse paramater-delcaration and then comma
+    while (!expect_token(T_RPAREN)) {
+
+        type_info_t param_type = parse_declaration_specifiers();
+        // TODO Check if there actualyl was a declaration specifier: Semi implemntation:
+        if (!(param_type.specifier_info.is_int || param_type.specifier_info.is_char)) {
+            // Error out.
+            return -1;
+        }
+        parse_declarator(&param_type);
+        ast_node_t parameter = ast_param_decl_init(param_type, param_type.identifier_token.contents);
+
+        ast_node_vector_push(&parameters, parameter);
+        if (!expect_token(T_COMMA))
+            break;
+        eat_token(T_COMMA);
+    }
+
+    eat_token(T_RPAREN);
+    // Parse Body
+
+    if (expect_token(T_SEMICOLON)) {
+        // Body is unitiliazed.
+        // TODO: Functions withouts bodies are not supported yet.
+        // ie definitions but not declarations
+        errorf("Function not allowed without body.\n");
+        return -1;
+    }
+    // Function with a body.
+    else if (expect_token(T_LBRACE)){
+
+        ast_node_t body = parse_compound_statement();
+        node = ast_func_decl_init(body, parameters, return_type, id_token.contents);
+        return node;
+    }
+
+}
+
+static ast_node_t parse_toplevel_declaration() {
+    // Parse function declaration or var / normal declaration, who knows what to chosoe! hahahhaha
     if (error_handler.abort) {
         return -1;
     }
@@ -759,84 +903,20 @@ static ast_node_t parse_declaration() {
         eat_token(T_END);
         return -1;
     }
-
-    // OR can be structs, unions, enums, typdefs, ETC.
-    // Switch over these Tokens ^^:
-
     type_info_t type_info = parse_declaration_specifiers();
 
-    if (expect_token(T_MUL)) {
-        eat_token(T_MUL);
-        type_info.is_pointer = true;
-    }
-
-    // We always need an identifier here:
-    // If not, we need to do error handling somehow.
-    // For now, store error in the token type.
-
-    token_t id_token = eat_token(T_IDENTIFIER);
-    if (id_token.kind == T_INVALID) {
-        printf("Invalid token encountered, aborting AST building.\n");
-        return -1;
-    }
-
-    // It can either be a var declaration or a function delcaration.
-    // Function Declaration:
+    // Parse a bunch of declarators
+    parse_declarator(&type_info);
     
-    // Function Declaration:
     if (expect_token(T_LPAREN)) {
-        ast_node_t node; // Unintiialized.
-        eat_token(T_LPAREN);
-        // Parse function declaration
-        ast_node_vector parameters = ast_node_vector_init(6);
-
-        // While the next token isn't a Rparen, parse parameters
-        while (!expect_token(T_RPAREN)) {
-            // Expect a type (int only for now)
-            eat_token(T_INT);
-            type_info_t param_type_info = {0};
-            param_type_info.type = INT;
-
-            // Expect a name
-            token_t param_id_token = eat_token(T_IDENTIFIER);
-            ast_node_t parameter = ast_param_decl_init(param_type_info, param_id_token.contents);
-
-            ast_node_vector_push(&(parameters), parameter);
-            // Expect a comma maybe
-            // If there isn't a comma, then break.
-            if (!expect_token(T_COMMA))
-                break;
-            eat_token(T_COMMA);
-        } // Done parsing parameters.
-
-        eat_token(T_RPAREN);
-
-        // Function without a body.
-        if (expect_token(T_SEMICOLON)) {
-            // Body is unitiliazed.
-            // TODO: Functions withouts bodies are not supported yet.
-            // ie definitions but not declarations
-            errorf("Function not allowed without body.\n");
-            return -1;
-        }
-        // Function with a body.
-        else if (expect_token(T_LBRACE)){
-
-            ast_node_t body = parse_compound_statement();
-            node = ast_func_decl_init(body, parameters, type_info, id_token.contents);
-            return node;
-        }
-    } // End function declaration.
-
-    // Variable Declaration:
-    else {
-        ast_node_t node = parse_var_declaration(id_token, type_info);
-        return node;
+        return parse_function_definition(type_info);
     }
-    // Something went wrong:
-    return -1;
+    else {
+        return parse_declaration(type_info);
+    }
+    
+    // If function parse 
 }
-
 
 static ast_node_t parse_translation_unit() {
 
@@ -845,7 +925,7 @@ static ast_node_t parse_translation_unit() {
     ast_node_vector body = ast_node_vector_init(16);
 
     while(true) {
-        ast_node_t decl = parse_declaration();
+        ast_node_t decl = parse_toplevel_declaration();
         if (decl == -1) {
             break;
         }

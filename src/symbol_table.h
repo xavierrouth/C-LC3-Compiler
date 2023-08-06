@@ -14,9 +14,9 @@ typedef struct SYMBOL_TABLE_ENTRY_STRUCT {
     int32_t size; 
     int32_t offset; //Location on stack frame as offset
     enum {
-        PARAMETER,
-        VARIABLE,
-        FUNCTION
+        PARAMETER_ST_ENTRY,
+        VARIABLE_ST_ENTRY,
+        FUNCTION_ST_ENTRY
     } type;
     int32_t scope;
 } symbol_table_entry_t;
