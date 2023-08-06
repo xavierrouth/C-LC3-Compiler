@@ -44,19 +44,19 @@ typedef struct DECLARATOR_PART {
 } declarator_part_t;
 
 typedef struct DECLARATOR_TYPE {
-    declarator_part_t declarator_part_list[8];
-    char* identifier;
+    declarator_part_t parts[MAX_DECL_PARTS];
+    uint16_t idx;
 } declarator_t;
-
-
 
 typedef struct TYPE_INFO_STRUCT {
     specifier_info_t specifier_info;
-    declarator_part_t declarator_part_list[MAX_DECL_PARTS];
+    declarator_t declarator;
     token_t identifier_token;
-    uint16_t declarator_part_list_idx; 
 } type_info_t;
 
 char* type_info_to_str(type_info_t type_info);
+
+/** Append b to the end of a*/
+declarator_t merge_declarator(declarator_t a, declarator_t b);
 
 #endif

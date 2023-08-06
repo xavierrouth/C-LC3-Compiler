@@ -80,5 +80,4 @@ void symbol_table_add(token_t identifier_token, int32_t scope, type_info_t retur
     symbol_table_live[idx] = true;
     symbol_table[idx++] = new_entry;
     return;
-
 }

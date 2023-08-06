@@ -290,7 +290,8 @@ static ast_node_t parse_declaration();
 
 static ast_node_t parse_expression(uint16_t min_binding_power);
 
-static void parse_declarator(type_info_t* type_info);
+static declarator_t parse_declarator(type_info_t* type_info, bool check_pointers);
+
 static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info);
 
 // Eats the braces:
@@ -310,104 +311,71 @@ static bool check_missing_expression(ast_node_t expr) {
     return false;
 } 
 
-static void parse_direct_declarator(type_info_t* type_info) {
-    if (expect_token(T_IDENTIFIER)) {
-        type_info->identifier_token = eat_token(T_IDENTIFIER); 
-        return; 
-    }
-    if (expect_token(T_LPAREN)) {
-        eat_token(T_LPAREN);
-        parse_declarator(type_info);
-        eat_token(T_RPAREN);
-        return;
-    }
-
-    
-
-    // Type info needs to have an id populated by now. 
-    /**
-    if (type_info->identifier_token.kind != T_IDENTIFIER) {
-        // TODO: More specific error message here.
-        parser_error_t error = {
-            .invalid_token = get_token(),
-            .prev_token = previous_token(),
-            .type = ERROR_MISSING_EXPRESSION
-        };
-        report_error(error);
-        skip_statement();
-        return;
-    }
-    */
-
-    if (type_info->identifier_token.kind == T_IDENTIFIER) {
-        if (expect_token(T_LBRACKET)) {
-            uint16_t idx = type_info->declarator_part_list_idx;
-            if (type_info->declarator_part_list_idx >= MAX_DECL_PARTS) {
-                // Todo: Make this an error
-                assert("Too many decl parts nested" && 0);
-            }
-            eat_token(T_LBRACKET);
-            // TODO: Support different texpressoins for array sizes
-            token_t array_size_token = eat_token(T_INTLITERAL);
-            uint16_t array_size = atoi(array_size_token.contents);
-            eat_token(T_RBRACKET);
-            
-            type_info->declarator_part_list[idx].type = ARRAY_DECL;
-            type_info->declarator_part_list[idx].array_size = array_size;
-            type_info->declarator_part_list_idx++;
-            eat_token(T_MUL);
-        }
-        // Do other types of identifier things:
-        /** Parse function pointer decl*/
-        // TODO:
-        /**
-        if (expect_token(T_LPAREN)) {
-            eat_token(T_LPAREN);
-
-            eat_token(T_RPAREN);
-        }*/
-        /** 
-         | <direct-declarator> [ {<constant-expression>}? ]
-        | <direct-declarator> ( <parameter-type-list> )
-        | <direct-declarator> ( {<identifier>}* ) // What is this for?
-        */
-        return;
-    }
-
-    parse_direct_declarator(type_info);
-
-    return;
-
-}
-
-static void parse_pointer(type_info_t* type_info) {
+static declarator_t parse_pointers() {
     eat_token(T_MUL);
     // Parse type qualifier (const or voltaile ptr)
 
-    uint16_t idx = type_info->declarator_part_list_idx;
-    if (type_info->declarator_part_list_idx >= MAX_DECL_PARTS) {
+    declarator_t declarator = {0}; 
+
+    uint16_t idx = declarator.idx;
+    if (declarator.idx >= MAX_DECL_PARTS) {
         // Todo: Make this an error
         assert("Too many decl parts nested" && 0);
     }
-    type_info->declarator_part_list[idx].type = POINTER_DECL;
-    type_info->declarator_part_list_idx++;
+    declarator.parts[idx].type = POINTER_DECL;
+    declarator.idx++;
 
     if (expect_token(T_MUL)) {
-        parse_pointer(type_info); 
+        declarator = merge_declarator(declarator, parse_pointers());
     }
 
-    return;
+    return declarator;
 }
 
-// Parse a declarator and add the declarator part to this type_info
-static void parse_declarator(type_info_t* type_info) {
-    if (expect_token(T_MUL)) {
-        parse_pointer(type_info);
+static declarator_t parse_declarator(type_info_t* type_info, bool check_pointers) {
+    /**Convert declarator to direct declarator, by conditionally handling pointers*/
+    declarator_t right_decl = {0};
+    declarator_t left_decl = {0};
+    if (check_pointers && expect_token(T_MUL)) {
+        right_decl = merge_declarator(right_decl, parse_pointers());
     }
-    
-    parse_direct_declarator(type_info);
-    
-    return;
+
+    /** Parse Tokens here*/
+    if (expect_token(T_IDENTIFIER)) {
+        type_info->identifier_token = eat_token(T_IDENTIFIER); 
+    }
+
+    else if (expect_token(T_LPAREN)) {
+        eat_token(T_LPAREN);
+        left_decl = parse_declarator(type_info, true);
+        eat_token(T_RPAREN);
+    }
+
+    while (expect_token(T_LBRACKET)) { //| expect_token(T_LPAREN)) {
+        if (type_info->identifier_token.kind == T_IDENTIFIER) {
+            if (expect_token(T_LBRACKET)) {
+                if (left_decl.idx >= MAX_DECL_PARTS) {
+                    // Todo: Make this an error
+                    assert("Too many decl parts nested" && 0);
+                }
+                eat_token(T_LBRACKET);
+                // TODO: Support different texpressoins for array sizes
+                token_t array_size_token = eat_token(T_INTLITERAL);
+                uint16_t array_size = atoi(array_size_token.contents);
+                eat_token(T_RBRACKET);
+                
+                left_decl.parts[left_decl.idx].type = ARRAY_DECL;
+                left_decl.parts[left_decl.idx].array_size = array_size;
+                left_decl.idx++;
+            }
+        }
+        else {
+            printf("merme\n");
+        }
+    }
+
+    return merge_declarator(left_decl, right_decl);
+
 }
 
 // returns true 
@@ -735,7 +703,7 @@ static ast_node_t parse_statement() {
     type_info_t type_info = parse_declaration_specifiers(); 
     
     if (type_info.specifier_info.is_int || type_info.specifier_info.is_char) {
-        parse_declarator(&type_info);
+        type_info.declarator = parse_declarator(&type_info, true);
         return parse_declaration(type_info);
     }
 
@@ -811,7 +779,7 @@ static ast_node_t parse_function_definition(const type_info_t return_type) {
             // Error out.
             return -1;
         }
-        parse_declarator(&param_type);
+        param_type.declarator = parse_declarator(&param_type, true);
         ast_node_t parameter = ast_param_decl_init(param_type, param_type.identifier_token);
 
         ast_node_vector_push(&parameters, parameter);
@@ -852,12 +820,13 @@ static ast_node_t parse_toplevel_declaration() {
     type_info_t type_info = parse_declaration_specifiers();
 
     // Parse a bunch of declarators
-    parse_declarator(&type_info);
+    type_info.declarator = parse_declarator(&type_info, true);
     
     if (expect_token(T_LPAREN)) {
         return parse_function_definition(type_info);
     }
     else {
+        
         return parse_declaration(type_info);
     }
     

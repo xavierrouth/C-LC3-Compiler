@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdarg.h>
+#include <assert.h>
 
 #include "codegen.h"
 #include "AST.h"
@@ -120,7 +121,7 @@ static int16_t emit_expression_node(ast_node_t node_h) {
                 int16_t reg = emit_expression_node(node.as.expr.binary.right);
 
                 //struct AST_NODE_STRUCT child = ast_node_data(node.as.)
-                symbol_table_entry_t symbol = symbol_table_search(symbol_ref_scopes[node.as.expr.binary.left], left.as.expr.symbol.identifier);
+                symbol_table_entry_t symbol = symbol_table_search(left.as.expr.symbol.token, symbol_ref_scopes[node.as.expr.binary.left]);
             
                 emitf("STR R%d, R5, #%d ; Assign to variable \"%s\"\n\n", reg, -1 * symbol.offset, symbol.identifier);
                 state.regfile[reg] = UNUSED;
@@ -198,6 +199,43 @@ static int16_t emit_expression_node(ast_node_t node_h) {
                 emitf("ADD R%d, R%d, #1\n", r, r);
                 return r; // Its stored in the same register still.
             }
+            /** Address of identifier*/
+            case OP_BITAND: {
+                // Semant should have checked that this is a lvalue -> rvalue
+                struct AST_NODE_STRUCT child = ast_node_data(node.as.expr.unary.child);
+                ast_node_t child_h = node.as.expr.unary.child;
+                // Assert that it is an lvalue
+                assert(child.type == A_SYMBOL_REF);
+                symbol_table_entry_t symbol = symbol_table_search(child.as.expr.symbol.token, symbol_ref_scopes[child_h]);
+                int r = get_empty_reg();
+
+                // TODO: Global Symbols (LEA)
+                if (symbol.type == PARAMETER_ST_ENTRY) { // Is a parameter
+                    emitf("ADD R%d, R5, #%d ; Load parameter \"%s\"\n", r, symbol.offset + 4, symbol.identifier);
+                }
+                else { // Not a parameter
+                    emitf("ADD R%d, R5, #%d ; Load local variable \"%s\"\n", r, -1 * symbol.offset, symbol.identifier);
+                }
+                return r;
+
+            }
+            /** Dereference*/
+            case OP_MUL: {
+                struct AST_NODE_STRUCT child = ast_node_data(node.as.expr.unary.child);
+                ast_node_t child_h = node.as.expr.unary.child;
+                assert(child.type == A_SYMBOL_REF); // Assert
+                symbol_table_entry_t symbol = symbol_table_search(child.as.expr.symbol.token, symbol_ref_scopes[child_h]);
+                int r = get_empty_reg();
+
+                // TODO: Global Symbols 
+                if (symbol.type == PARAMETER_ST_ENTRY) { // Is a parameter
+                    emitf("ADD R%d, R5, #%d ; Load parameter \"%s\"\n", r, symbol.offset + 4, symbol.identifier);
+                }
+                else { // Not a parameter
+                    emitf("ADD R%d, R5, #%d ; Load local variable \"%s\"\n", r, -1 * symbol.offset, symbol.identifier);
+                }
+                return r;
+            }
         }
     }
     else if (node.type == A_FUNCTION_CALL) {
@@ -209,7 +247,8 @@ static int16_t emit_expression_node(ast_node_t node_h) {
             emitf("STR R%d, R6, #0 ; Push argument to stack frame\n", r);
             emitf("\n");
         }
-        emitf("JSR %s\n\n", ast_node_data(node.as.expr.call.symbol_ref).as.expr.symbol.identifier);
+        // TODO: Support calling arbitrary memory locations as functions.
+        emitf("JSR %s\n\n", ast_node_data(node.as.expr.call.symbol_ref).as.expr.symbol.token.contents);
         int ret = get_empty_reg();
         // load 
         emitf("LDR R%d, R6, #0 ; Load the return value\n", ret);
@@ -232,12 +271,12 @@ static int16_t emit_expression_node(ast_node_t node_h) {
     }
     else if (node.type == A_SYMBOL_REF) {
         // Do now
-        symbol_table_entry_t symbol = symbol_table_search(symbol_ref_scopes[node_h], node.as.expr.symbol.identifier);
+        symbol_table_entry_t symbol = symbol_table_search(node.as.expr.symbol.token, symbol_ref_scopes[node_h]);
         // Load 
         // Parameters need a positive offset??
         // Is a parameter
         int r1 = get_empty_reg();
-        if (symbol.type == PARAMETER) { // Is a parameter
+        if (symbol.type == PARAMETER_ST_ENTRY) { // Is a parameter
             emitf("LDR R%d, R5, #%d ; Load parameter \"%s\"\n", r1, symbol.offset + 4, symbol.identifier);
         }
         else { // Not a parameter
@@ -365,18 +404,18 @@ void emit_ast_node(ast_node_t node_h) {
             return;
         }
         case A_FUNCTION_DECL: {
-            bool is_main = !strcmp(node.as.func_decl.identifier, "main");
+            bool is_main = !strcmp(node.as.func_decl.token.contents, "main");
             state.regfile[0] = UNUSED;
             state.regfile[1] = UNUSED;
             state.regfile[2] = UNUSED;
             state.regfile[3] = UNUSED;
-            current_function_name = node.as.func_decl.identifier;
+            current_function_name = node.as.func_decl.token.contents;
             // Callee save registers:
 
             // 
             emitf("\n");
-            emitf("; Begin function %s:\n", node.as.func_decl.identifier);
-            emitf("%s\n", node.as.func_decl.identifier);
+            emitf("; Begin function %s:\n", node.as.func_decl.token.contents);
+            emitf("%s\n", node.as.func_decl.token.contents);
             emitf("; Callee Setup: \n");
             emitf("ADD R6, R6, #-1 ; Allocate spot for the return value\n");
             emitf("\n");
@@ -401,7 +440,7 @@ void emit_ast_node(ast_node_t node_h) {
             emitf("\n");
             emitf("; Perform work for function: \n");
             emit_ast_node(node.as.func_decl.body);
-            emitf("%s_teardown \n", node.as.func_decl.identifier);
+            emitf("%s_teardown \n", node.as.func_decl.token.contents);
             emitf("ADD R6, R5, #1 ; Pop local variables\n");
             emitf("\n");
             // Callee Restore Registers
@@ -425,7 +464,7 @@ void emit_ast_node(ast_node_t node_h) {
             // Don't return from main.
             if (!is_main)
                 emitf("RET\n");
-            emitf("; End function %s\n", node.as.func_decl.identifier);
+            emitf("; End function %s\n", node.as.func_decl.token.contents);
             emitf("\n");
             return;
         }
@@ -440,22 +479,22 @@ void emit_ast_node(ast_node_t node_h) {
             // Global variable
             // This decl needs to point to a 
             if (var_decl_scopes[node_h] == 0) {
-                emitf("%s .FILL x0000\n", node.as.var_decl.identifier);
+                emitf("%s .FILL x0000\n", node.as.var_decl.token.contents);
                 // No initializer.
                 return;
             }
             
             // Local Variable, 
             // allocate space for local variable
-            emitf("ADD R6, R6, #-1 ; Allocate space for \"%s\"\n", node.as.var_decl.identifier);
+            emitf("ADD R6, R6, #-1 ; Allocate space for \"%s\"\n", node.as.var_decl.token.contents);
             if (node.as.var_decl.initializer != -1) {
                 // TOOD: Assignment nodes should not really be separate, there should be an assignemnt expression.
                 // But for now, we can kepe initialization separate, as for static ints it works different I suppose
                 // Load a reg with the initializer value
                 int reg = emit_expression_node(node.as.var_decl.initializer);
-                symbol_table_entry_t symbol = symbol_table_search(var_decl_scopes[node_h], node.as.var_decl.identifier);
+                symbol_table_entry_t symbol = symbol_table_search(node.as.var_decl.token, var_decl_scopes[node_h]);
                 
-                emitf("STR R%d, R5, #%d ; Initialize \"%s\" \n", reg, -1 * symbol.offset, node.as.var_decl.identifier);
+                emitf("STR R%d, R5, #%d ; Initialize \"%s\" \n", reg, -1 * symbol.offset, symbol.identifier);
                 state.regfile[reg] = UNUSED;
             }
             emitf("\n");
