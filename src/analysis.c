@@ -67,18 +67,17 @@ void analyze_ast_node(ast_node_t node_h) {
             break;
         }
         case A_VAR_DECL: {
-            symbol_table_add(node.as.var_decl.identifier, node.as.var_decl.type_info, VARIABLE_ST_ENTRY, 1, var_offsets[curr_scope()]++, curr_scope());
+            symbol_table_add(node.as.var_decl.token, curr_scope(),  node.as.var_decl.type_info, VARIABLE_ST_ENTRY, 1, var_offsets[curr_scope()]++);
             var_decl_scopes[node_h] = curr_scope();
             break;
         }
         case A_PARAM_DECL: {
-            symbol_table_add(node.as.param_decl.identifier, node.as.param_decl.type_info, PARAMETER_ST_ENTRY, 1, param_offsets[curr_scope()]++, curr_scope());
+            symbol_table_add(node.as.param_decl.token, curr_scope(), node.as.param_decl.type_info, PARAMETER_ST_ENTRY, 1, param_offsets[curr_scope()]++);
             var_decl_scopes[node_h] = curr_scope();
             break;
         }
-            
         case A_FUNCTION_DECL: {
-            symbol_table_add(node.as.func_decl.identifier, node.as.func_decl.type_info, FUNCTION_ST_ENTRY, 1, 1, curr_scope());
+            symbol_table_add(node.as.func_decl.token, curr_scope(), node.as.func_decl.type_info, FUNCTION_ST_ENTRY, 1, 1);
             enter_scope();
             break;
         }
@@ -90,6 +89,8 @@ void analyze_ast_node(ast_node_t node_h) {
             break;
         }
         case A_SYMBOL_REF: {
+            // Search for it to make sure it exists
+            symbol_table_search(node.as.expr.symbol.token, curr_scope());
             symbol_ref_scopes[node_h] = curr_scope();
             break;
         }

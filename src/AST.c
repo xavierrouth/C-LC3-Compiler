@@ -64,9 +64,9 @@ ast_node_t ast_expr_call_init(ast_node_t symbol_ref, ast_node_vector arguments) 
     return node;
 }
 
-ast_node_t ast_expr_symbol_init(char* identifier) {
+ast_node_t ast_expr_symbol_init(token_t token) {
     ast_node_t node = ast_node_init(A_SYMBOL_REF);
-    ast_instances[node].as.expr.symbol.identifier = identifier;
+    ast_instances[node].as.expr.symbol.token = token;
     //ast_instances[node].as.expr.symbol.scope = scope;
     // Why does a symbol reference have a type??
     //ast_instances[node].as.expr.symbol.type = type;
@@ -144,24 +144,24 @@ ast_node_t ast_for_stmt_init(ast_node_t intializer, ast_node_t condition, ast_no
 
 
 // -1 for no initializer
-ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, char* identifier) {
+ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, token_t token) {
     ast_node_t node = ast_node_init(A_VAR_DECL);
-    ast_instances[node].as.var_decl.identifier = identifier;
+    ast_instances[node].as.var_decl.token = token;
     ast_instances[node].as.var_decl.initializer = initializer;
     ast_instances[node].as.var_decl.type_info = type_info;
     return node;
 }
 
-ast_node_t ast_param_decl_init(type_info_t type_info, char* identifier) {
+ast_node_t ast_param_decl_init(type_info_t type_info, token_t token) {
     ast_node_t node = ast_node_init(A_PARAM_DECL);
-    ast_instances[node].as.param_decl.identifier = identifier;
+    ast_instances[node].as.param_decl.token = token;
     ast_instances[node].as.param_decl.type_info = type_info;
     return node;
 }
 
-ast_node_t ast_func_decl_init(ast_node_t body, ast_node_vector parameters, type_info_t type_info, char* identifier) {
+ast_node_t ast_func_decl_init(ast_node_t body, ast_node_vector parameters, type_info_t type_info, token_t token) {
     ast_node_t node = ast_node_init(A_FUNCTION_DECL);
-    ast_instances[node].as.func_decl.identifier = identifier;
+    ast_instances[node].as.func_decl.token = token;
     ast_instances[node].as.func_decl.body = body;
     ast_instances[node].as.func_decl.type_info = type_info;
     ast_instances[node].as.func_decl.parameters = parameters;  
@@ -433,7 +433,7 @@ void print_ast_node(ast_node_t node, uint32_t indentation) {
             snprintf(print_buffer, 128,
                 "<node=%s, identifier=\"%s\", type=%s, size=%d>\n", \
                 ast_type_to_str(ast_instances[node].type), 
-                ast_instances[node].as.var_decl.identifier,
+                ast_instances[node].as.var_decl.token.contents,
                 type_info_to_str(ast_instances[node].as.var_decl.type_info),
                 ast_instances[node].size);   
             printf_indent(indentation*3, print_buffer);
@@ -443,7 +443,7 @@ void print_ast_node(ast_node_t node, uint32_t indentation) {
             snprintf(print_buffer, 128,
                 "<node=%s, identifier=\"%s\", type=%s, size=%d>\n", \
                 ast_type_to_str(ast_instances[node].type), 
-                ast_instances[node].as.param_decl.identifier,
+                ast_instances[node].as.param_decl.token.contents,
                 type_info_to_str(ast_instances[node].as.param_decl.type_info),
                 ast_instances[node].size);   
             printf_indent(indentation*3, print_buffer);
@@ -453,7 +453,7 @@ void print_ast_node(ast_node_t node, uint32_t indentation) {
            snprintf(print_buffer, 128,
                 "<node=%s, identifier=\"%s\", size=%d>\n", \
                 ast_type_to_str(ast_instances[node].type), 
-                ast_instances[node].as.expr.symbol.identifier,
+                ast_instances[node].as.expr.symbol.token.contents,
                 ast_instances[node].size);   
             printf_indent(indentation*3, print_buffer);
             return;    
@@ -471,7 +471,7 @@ void print_ast_node(ast_node_t node, uint32_t indentation) {
             snprintf(print_buffer, 128,
                 "<node=%s, identifier=\"%s\", size=%d>\n", \
                 ast_type_to_str(ast_instances[node].type), 
-                ast_instances[node].as.func_decl.identifier,
+                ast_instances[node].as.func_decl.token.contents,
                 ast_instances[node].size);
             printf_indent(indentation*3, print_buffer);
             return;            

@@ -4,7 +4,9 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
+
 #include "types.h"
+#include "token.h"
 
 #define SYMBOL_TABLE_MAX_SIZE 100
 
@@ -23,7 +25,8 @@ typedef struct SYMBOL_TABLE_ENTRY_STRUCT {
 
 extern int32_t parent_scope[SYMBOL_TABLE_MAX_SIZE];
 
-void symbol_table_add(char* identifier, type_info_t return_type, int32_t type, int32_t size, int32_t offset, int32_t scope);
-symbol_table_entry_t symbol_table_search(int32_t scope, char* identifier);
+void symbol_table_add(token_t identifier_token, int32_t scope, type_info_t return_type, int32_t type, int32_t size, int32_t offset);
+
+symbol_table_entry_t symbol_table_search(token_t identifier_token, int32_t scope);
 
 #endif

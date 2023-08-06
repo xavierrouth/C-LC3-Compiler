@@ -1,13 +1,14 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <argp.h>
+
 #include "token.h"
 #include "lexer.h"
 #include "parser.h"
 #include "AST.h"
 #include "codegen.h"
 #include "analysis.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <argp.h>
+#include "error.h"
 
 const char* argp_program_version = "1.0";
 const char* argp_program_bug_address = "<xrouth2@illinois.edu>";
@@ -87,6 +88,8 @@ int main(int argc, char **argv) {
 
     if (arguments.verbose) print_ast(root);
     analysis(root);
+    
+    print_errors();
     if (arguments.verbose) printf("Beginning Code gen:\n");
     emit_ast(root);
     free_ast(root);

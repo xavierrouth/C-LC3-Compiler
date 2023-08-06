@@ -120,6 +120,7 @@ typedef enum AST_NODE_ENUM {
 struct AST_NODE_STRUCT {
     ast_node_enum type;
     uint32_t size; // Number of children including itself.
+    token_t token;
     union { 
         // ==== Expressions: ====
         union {
@@ -132,7 +133,7 @@ struct AST_NODE_STRUCT {
             } call;
             struct { // A reference to an already defined symbol
                 type_info_t type;
-                char* identifier;
+                token_t token;
             } symbol;
             struct {
                 ast_node_t left; 
@@ -189,22 +190,22 @@ struct AST_NODE_STRUCT {
         } stmt;
         // ==== Declarations: ====
         struct {
-            char* identifier;
             ast_node_t initializer;
             type_info_t type_info;
             uint32_t scope;
+            token_t token;
         } var_decl;
         struct {
-            char* identifier;
             type_info_t type_info;
             uint32_t scope;
+            token_t token;
         } param_decl;
         struct {
-            char* identifier;
             ast_node_t body; // Compound statement
             type_info_t type_info;
             ast_node_vector parameters;
             uint32_t scope;
+            token_t token;
         } func_decl; // Do the parameters need to have their own parm var decl node type?
         struct {
             ast_node_vector body;
@@ -217,7 +218,7 @@ struct AST_NODE_STRUCT {
 ast_node_t ast_node_init(ast_node_enum type);
 ast_node_t ast_int_literal_init(uint32_t value);
 ast_node_t ast_expr_call_init(ast_node_t symbol_ref, ast_node_vector arguments);
-ast_node_t ast_expr_symbol_init(char* identifier);
+ast_node_t ast_expr_symbol_init(token_t token);
 ast_node_t ast_assign_expr_init(ast_node_t left, ast_node_t right);
 ast_node_t ast_unary_op_init(ast_op_enum type, ast_node_t child, bool order);
 ast_node_t ast_binary_op_init(ast_op_enum type, ast_node_t left, ast_node_t right);
@@ -227,9 +228,9 @@ ast_node_t ast_while_stmt_init(ast_node_t condition, ast_node_t body);
 ast_node_t ast_for_stmt_init(ast_node_t intializer, ast_node_t condition, ast_node_t update, ast_node_t body);
 ast_node_t ast_return_stmt_init(ast_node_t expression);
 ast_node_t ast_if_stmt_init(ast_node_t condition, ast_node_t if_stmt, ast_node_t else_stmt);
-ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, char* identifier);
-ast_node_t ast_param_decl_init(type_info_t type_info, char* identifier);
-ast_node_t ast_func_decl_init(ast_node_t body, ast_node_vector parameters, type_info_t type_info, char* identifier);
+ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, token_t token);
+ast_node_t ast_param_decl_init(type_info_t type_info, token_t token);
+ast_node_t ast_func_decl_init(ast_node_t body, ast_node_vector parameters, type_info_t type_info, token_t token);
 ast_node_t ast_program_init(ast_node_vector body);
 // Takes a token type and returns the corresponding OP type.
 ast_op_enum token_to_op(token_enum type);

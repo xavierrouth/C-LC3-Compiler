@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include "error.h"
 #include "util.h"
 #include "parser.h"
 #include "analysis.h"
@@ -15,80 +16,25 @@
 #define errorf printf
 
 static parser_t parser; // parser-scope parser state
-static parser_error_handler error_handler; // parser-scope error handler
+extern parser_error_handler error_handler;
 
 /** ==================================================
  * Parser Errors:
  * =================================================== */
 
-static void print_error(parser_error_t error);
-
 /* Ends parsing and reports all errors / warnings. */
-static void end_parse() {
+void end_parse() {
     static bool triggered = false;
 
     if (triggered) {
         return;
     }
-    // Just the first error:
-    /**
-    if (error_handler.num_errors > 0)
-        print_error(error_handler.errors[0]);
-    */
-    for (int i = 0; i < error_handler.num_errors; i++) {
-        print_error(error_handler.errors[i]);
-    }
-    for (int i = 0; i < error_handler.num_warnings; i++) {
-        //print_error(error_handler.warnings[i]);
-    }
+
+    print_errors();
+    
     triggered = true;
 }
 
-static void report_error(parser_error_t error) {
-    if (error_handler.num_errors == MAX_NUM_PARSER_ERRORS) {
-        end_parse();
-    }
-    error_handler.errors[error_handler.num_errors++] = error;
-    
-}
-
-static void report_warning(parser_error_t error) {
-    return;
-}
-
-static void print_error(parser_error_t error) {
-    token_t previous = error.prev_token;
-    size_t token_length = strlen(previous.contents);
-    size_t len = strlen("Line # |");
-    switch (error.type) {
-        
-        case ERROR_MISSING_SEMICOLON: {
-            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected semicolon.\n");
-            print_line(previous.debug_info.row, parser.source, parser.source_size);
-            printf_indent(previous.debug_info.col + token_length + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
-            return;
-        }
-        case ERROR_MISSING_EXPRESSION: {
-            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected an expression.\n");
-            print_line(error.invalid_token.debug_info.row, parser.source, parser.source_size);
-            printf_indent(error.invalid_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
-            return;
-        }
-        case ERROR_UNEXPECTED_TOKEN: {
-            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Unexpected token.\n");
-            print_line(error.invalid_token.debug_info.row, parser.source, parser.source_size);
-            printf_indent(error.invalid_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
-            return;
-        }
-        default: {
-            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Something is wrong!\n");
-            print_line(error.prev_token.debug_info.row, parser.source, parser.source_size);
-            printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
-            return;
-        }
-    }
-}
-    
 
 /** ==================================================
  * Token stream interaction:
@@ -547,7 +493,7 @@ static ast_node_t parse_function_call(ast_node_t symbol_ref) {
 static ast_node_t parse_symbol_ref() {
     token_t id = eat_token(T_IDENTIFIER);
     // Scope::
-    ast_node_t symbol = ast_expr_symbol_init(id.contents);
+    ast_node_t symbol = ast_expr_symbol_init(id);
 
     return symbol;
 }
@@ -812,12 +758,12 @@ static ast_node_t parse_declaration(type_info_t type_info) {
             return -1;
         }
         eat_token(T_SEMICOLON);
-        ast_node_t node = ast_var_decl_init(initializer, type_info, type_info.identifier_token.contents);
+        ast_node_t node = ast_var_decl_init(initializer, type_info, type_info.identifier_token);
         return node;
     }
     else {
         eat_token(T_SEMICOLON); 
-        ast_node_t node = ast_var_decl_init(-1, type_info, type_info.identifier_token.contents);
+        ast_node_t node = ast_var_decl_init(-1, type_info, type_info.identifier_token);
         return node;
     }
 }
@@ -866,7 +812,7 @@ static ast_node_t parse_function_definition(const type_info_t return_type) {
             return -1;
         }
         parse_declarator(&param_type);
-        ast_node_t parameter = ast_param_decl_init(param_type, param_type.identifier_token.contents);
+        ast_node_t parameter = ast_param_decl_init(param_type, param_type.identifier_token);
 
         ast_node_vector_push(&parameters, parameter);
         if (!expect_token(T_COMMA))
@@ -888,7 +834,7 @@ static ast_node_t parse_function_definition(const type_info_t return_type) {
     else if (expect_token(T_LBRACE)){
 
         ast_node_t body = parse_compound_statement();
-        node = ast_func_decl_init(body, parameters, return_type, id_token.contents);
+        node = ast_func_decl_init(body, parameters, return_type, id_token);
         return node;
     }
 
@@ -951,8 +897,7 @@ void teardown_ast() {
 
 void init_parser(const char* source, uint32_t source_size) {
     parser.ast_root = -1;
-    parser.source = source;
-    parser.source_size = source_size;
+    init_error_handler(source, source_size);
     init_binding_power();
     return;
 }

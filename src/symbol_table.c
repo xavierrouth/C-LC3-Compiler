@@ -2,7 +2,9 @@
 #include <stdio.h>
 
 #include "symbol_table.h"
-
+#include "parser.h"
+#include "token.h"
+#include "error.h"
 
 symbol_table_entry_t symbol_table[SYMBOL_TABLE_MAX_SIZE];
 bool symbol_table_live[SYMBOL_TABLE_MAX_SIZE];
@@ -10,7 +12,8 @@ bool symbol_table_live[SYMBOL_TABLE_MAX_SIZE];
 // Parent pointers:
 int32_t parent_scope[SYMBOL_TABLE_MAX_SIZE];
 
-symbol_table_entry_t symbol_table_search(int32_t scope, char* identifier) {
+symbol_table_entry_t symbol_table_search(token_t identifier_token, int32_t scope) {
+    char* identifier = identifier_token.contents;
     for (int i = 0; i < SYMBOL_TABLE_MAX_SIZE; i++) {
         // Match characterisitcs from easiest to hardest
         if (!symbol_table_live[i]) {
@@ -27,16 +30,22 @@ symbol_table_entry_t symbol_table_search(int32_t scope, char* identifier) {
     // Recurse up, return the first match.
     if (scope != 0) {
         // Parent pointer.
-        return symbol_table_search(parent_scope[scope], identifier);
+        return symbol_table_search(identifier_token, parent_scope[scope]);
     } 
     symbol_table_entry_t invalid = {0};
     // TODO: Error:
-    printf("Could not find identifier.\n");
+    parser_error_t error = {
+        .invalid_token = identifier_token,
+        .prev_token = identifier_token,
+        .type = ERROR_SYMBOL_UNKNOWN
+    };
+    report_error(error);
     return invalid;
 }
 
-void symbol_table_add(char* identifier, type_info_t return_type, int32_t type, int32_t size, int32_t offset, int32_t scope) {
+void symbol_table_add(token_t identifier_token, int32_t scope, type_info_t return_type, int32_t type, int32_t size, int32_t offset) {
     static int32_t idx = 0;
+    char* identifier = identifier_token.contents;
     
     symbol_table_entry_t new_entry = {
         .identifier = identifier, 
@@ -58,7 +67,13 @@ void symbol_table_add(char* identifier, type_info_t return_type, int32_t type, i
 
         if (!strcmp(new_entry.identifier, search_entry.identifier)) {
             // Error, variable already decalred.
-            printf("Error: symbol %s already declared\n", new_entry.identifier);
+            // TODO: Point to previous definition
+            parser_error_t error = {
+                .invalid_token = identifier_token,
+                .prev_token = identifier_token,
+                .type = ERROR_SYMBOL_REDECLARED
+            };
+            report_error(error);
             return;
         }
     }
