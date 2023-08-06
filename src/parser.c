@@ -494,7 +494,9 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
         ast_node_t child = parse_expression(op_power);
         left = ast_unary_op_init(op_type, child, PREFIX);
     }
+    // TODO: Actually we might want to allow for empty expressions??. i.e return; or ();
     if (left == -1) {
+        /**
         parser_error_t error = {
             .prev_token = previous_token(),
             .invalid_token = op_token, 
@@ -503,6 +505,7 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
         report_error(error);
         // Probably should skip the entire expression.
         skip_statement();
+        */
         return -1;
     }
 

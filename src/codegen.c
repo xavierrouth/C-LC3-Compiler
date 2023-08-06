@@ -110,21 +110,34 @@ static int16_t emit_condition_node(ast_node_t node_h) {
 
 // Sethi-Ullman Register Allocation for the expression rooted at this node.
 static int16_t emit_expression_node(ast_node_t node_h) {
-    // TODO: Add immediates.
+    
     struct AST_NODE_STRUCT node = ast_node_data(node_h);
 
+    // TODO: Add immediates.
     if (node.type == A_BINARY_EXPR) {
         struct AST_NODE_STRUCT left = ast_node_data(node.as.expr.binary.left);
         struct AST_NODE_STRUCT right = ast_node_data(node.as.expr.binary.right);
         switch (node.as.expr.binary.type) {
             case OP_ASSIGN: {
+                // Need to do lots of checking here, depending on type of lvalue assign does different things in assembly.
                 int16_t reg = emit_expression_node(node.as.expr.binary.right);
+                
+                // Dereference of an expression
+                if (left.type == A_UNARY_EXPR & left.as.expr.unary.type == OP_MUL) {
+                    // Treat the child of left as an address, and just store into that.
+                    int16_t addr = emit_expression_node(left.as.expr.unary.child);
+                    emitf("STR R%d, R%d, #0 ; Dereference lvalue\n", reg, addr); 
+                    state.regfile[addr] = UNUSED;
 
+                }
+
+                else {
+                    symbol_table_entry_t symbol = symbol_table_search(left.as.expr.symbol.token, symbol_ref_scopes[node.as.expr.binary.left]);
+                    emitf("STR R%d, R5, #%d ; Assign to variable \"%s\"\n\n", reg, -1 * symbol.offset, symbol.identifier);
+                    state.regfile[reg] = UNUSED;
+                }
                 //struct AST_NODE_STRUCT child = ast_node_data(node.as.)
-                symbol_table_entry_t symbol = symbol_table_search(left.as.expr.symbol.token, symbol_ref_scopes[node.as.expr.binary.left]);
-            
-                emitf("STR R%d, R5, #%d ; Assign to variable \"%s\"\n\n", reg, -1 * symbol.offset, symbol.identifier);
-                state.regfile[reg] = UNUSED;
+                
                 return reg;
             }
             case OP_ADD: {
@@ -320,9 +333,12 @@ void emit_ast_node(ast_node_t node_h) {
             // Load the child into R0
             // Check if its already in R0???
             // No optimizations yet.
-            int reg = emit_expression_node(node.as.stmt._return.expression);
-            // Write it into return value slot, which 
-            emitf("STR R%d, R5, #3 ; Write return value, always R5 + 3\n", reg);
+            if (node.as.stmt._return.expression != -1) {
+                int reg = emit_expression_node(node.as.stmt._return.expression);
+                // Write it into return value slot, which 
+                emitf("STR R%d, R5, #3 ; Write return value, always R5 + 3\n", reg);
+            }
+            
             // Need to know what funciton we are returning from somehow.
             emitf("BRnzp %s_teardown \n", current_function_name);
             return;

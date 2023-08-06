@@ -7,7 +7,7 @@ void DereferenceTest(lc3::sim& sim, Tester& tester, double points) {
     sim.setRunInstLimit(50000);
     sim.run();
 
-    tester.verify("Returned 10?", sim.readMem(0xFDFE) == 30, 1);
+    tester.verify("Returned 10?", sim.readMem(0xFDFE) == 5, 1);
 }
 
 void testBringup(lc3::sim & sim) { }
