@@ -20,6 +20,8 @@ static struct argp_option options[] = {
     { "input", 'i', "FILE", 0, "Input path.", 0},
     { "output", 'o', "FILE", 0, "Output path", 0},
     { "verbose", 'v', 0, 0, "Produce verbose output", 0},
+    { "debug", 'g', 0, 0, "Enable debugging information", 0}, // These two are just so compiler explorer doesn't complain.
+    { "asm", 'S', 0, 0, "Enable assembly output", 0}, 
     //{ "print-ast", 0, 0},
     { 0 } 
 };
@@ -36,7 +38,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         case 'v': arguments->verbose = 1; break;
         case 'i': arguments->input_path = arg; break;
         case 'o': arguments->output_path = arg; break;
+        case 'g': break; // Doesn't do anything yet.
+        case 'S': break;
     case ARGP_KEY_ARG: return 0;
+    case ARGP_KEY_NO_ARGS: arguments->input_path = arg; break; 
     default: return ARGP_ERR_UNKNOWN;
     }   
     return 0;
