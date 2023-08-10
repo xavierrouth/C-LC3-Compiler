@@ -68,15 +68,21 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    if (arguments.verbose) printf("Handling output file\n");
+
     set_out_file(arguments.output_path);
 
+    if (arguments.verbose) printf("Reading input file\n");
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);  /* same as rewind(f); */
 
-    char* file_buffer = malloc(fsize + 1);
+    //char* file_buffer = malloc(fsize + 1);
+    char file_buffer[fsize + 1];
     fread(file_buffer, fsize, 1, f);
     fclose(f);
+
+    if (arguments.verbose) printf("Closing input file\n");
 
     file_buffer[fsize] = 0; //Set null terminator
 
@@ -102,8 +108,6 @@ int main(int argc, char **argv) {
     free_ast(root);
 
     close_out_file();
-
-    free(file_buffer);
     
     return 0;
 }
