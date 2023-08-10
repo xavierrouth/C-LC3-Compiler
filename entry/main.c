@@ -40,8 +40,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         case 'o': arguments->output_path = arg; break;
         case 'g': break; // Doesn't do anything yet.
         case 'S': break;
-    case ARGP_KEY_ARG: return 0;
-    case ARGP_KEY_NO_ARGS: arguments->input_path = arg; break; 
+    case ARGP_KEY_ARG: arguments->input_path = arg; break; 
     default: return ARGP_ERR_UNKNOWN;
     }   
     return 0;
@@ -60,6 +59,8 @@ int main(int argc, char **argv) {
     arguments.verbose = 0;
 
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+    arguments.input_path = argv[argc-1]; // This seems like I could do it better wrong.
 
     if ((f = fopen(arguments.input_path, "rb")) == NULL) {
         printf("%s\n", arguments.input_path);
