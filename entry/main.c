@@ -61,7 +61,8 @@ int main(int argc, char **argv) {
 
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
-    if ((f = fopen(arguments.input_path, "rb")) == NULL) { 
+    if ((f = fopen(arguments.input_path, "rb")) == NULL) {
+        printf("%s\n", arguments.input_path);
         printf("Invalid input file path.\n");
         return 1;
     }
