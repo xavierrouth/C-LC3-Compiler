@@ -200,6 +200,22 @@ static int16_t emit_expression_node(ast_node_t node_h) {
     }
     else if (node.type == A_UNARY_EXPR) {
         switch (node.as.expr.unary.type) {
+            /**
+            case OP_INCREMENT: {
+                if (node.as.expr.unary.order == POSTFIX) {
+                    // Scratchpad register
+                    uint8_t result = get_empty_reg();
+                    // Load variable, add to it, return variable
+                    // Need to support things like (*i)++;
+                    // Basically need to implement lvalues and rvalues.
+                    uint8_t symbol = emit_expression_node(node.as.expr.unary.child);
+
+                }   
+                else if (node.as.expr.unary.order == PREFIX) {
+                    // Increment, then return
+                }
+            }
+            */
             case OP_ADD: {
                 // Litreally doens't do anything, just return 
                 return emit_expression_node(node.as.expr.unary.child);
@@ -220,7 +236,7 @@ static int16_t emit_expression_node(ast_node_t node_h) {
                 // Assert that it is an lvalue
                 assert(child.type == A_SYMBOL_REF);
                 symbol_table_entry_t symbol = symbol_table_search(child.as.expr.symbol.token, symbol_ref_scopes[child_h]);
-                int r = get_empty_reg();
+                uint8_t r = get_empty_reg();
 
                 // TODO: Global Symbols (LEA)
 

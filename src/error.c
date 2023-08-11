@@ -6,46 +6,45 @@
 parser_error_handler error_handler; // parser-scope error handler
 
 static void print_error(parser_error_t error) {
-    token_t previous = error.prev_token;
-    size_t token_length = strlen(previous.contents);
-    size_t len = strlen("Line # |");
+    token_t token = error.invalid_token;
+    size_t token_length = strlen(token.contents);
+    size_t len = strlen("Line # |") + error.offset;
     switch (error.type) {
-        
         case ERROR_MISSING_SEMICOLON: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected semicolon.\n");
-            print_line(previous.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(previous.debug_info.col + token_length + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.debug_info.col + token_length + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_MISSING_EXPRESSION: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected an expression.\n");
-            print_line(error.invalid_token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(error.invalid_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_UNEXPECTED_TOKEN: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Unexpected token.\n");
-            print_line(error.invalid_token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(error.invalid_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_SYMBOL_REDECLARED: {
-            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Redeclaration of '%s'.\n", error.invalid_token.contents);
-            print_line(error.invalid_token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(error.invalid_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Redeclaration of '%s'.\n", token.contents);
+            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_SYMBOL_UNKNOWN: {
-            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Symbol '%s' was not declared in this scope.\n", error.invalid_token.contents);
-            print_line(error.invalid_token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(error.invalid_token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Symbol '%s' was not declared in this scope.\n", token.contents);
+            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
 
         }
         default: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Something is wrong!\n");
             print_line(error.prev_token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(previous.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
     }
@@ -72,10 +71,10 @@ void init_error_handler(const char* source, uint32_t source_size) {
     error_handler.source_size = source_size;
 }
 
-void report_error(parser_error_t error) {
+bool report_error(parser_error_t error) {
     if (error_handler.num_errors == MAX_NUM_PARSER_ERRORS) {
-        end_parse();
+        return false;
     }
     error_handler.errors[error_handler.num_errors++] = error;
+    return true;
 }
-    

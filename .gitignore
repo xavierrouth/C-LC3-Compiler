@@ -30,6 +30,8 @@
 *.exe
 *.out
 *.app
+*.asm
+
 
 /.devcontainer
 /.vscode
@@ -37,6 +39,11 @@
 /misc
 /build
 /out
+/in
+
+
+
+
 
 # Module Build
 lc3tools/build

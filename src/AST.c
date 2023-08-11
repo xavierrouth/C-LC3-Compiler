@@ -366,8 +366,8 @@ void ast_traversal(ast_node_t root, ast_node_visitor* visitor) {
             break;
         }
         case A_FOR_STMT: {
-            ast_traversal(ast_instances[root].as.stmt._for.condition, visitor);
             ast_traversal(ast_instances[root].as.stmt._for.initilization, visitor);
+            ast_traversal(ast_instances[root].as.stmt._for.condition, visitor);
             ast_traversal(ast_instances[root].as.stmt._for.update, visitor);
             ast_traversal(ast_instances[root].as.stmt._for.body, visitor);
             break;

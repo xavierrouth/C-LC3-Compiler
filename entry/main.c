@@ -13,7 +13,7 @@
 const char* argp_program_version = "1.0";
 const char* argp_program_bug_address = "<xrouth2@illinois.edu>";
 
-static char doc[] = "A C to LC3 Compiler built for students at the University of Illinois Urbana-Champaign by HKN at https://hkn-alpha.netlify.app/.";
+static char doc[] = "A C to LC3 Compiler built for students at the University of Illinois Urbana-Champaign by HKN (https://hkn-alpha.netlify.app).";
 static char args_doc[] = "file..."; 
 
 static struct argp_option options[] = { 
@@ -22,6 +22,7 @@ static struct argp_option options[] = {
     { "verbose", 'v', 0, 0, "Produce verbose output", 0},
     { "debug", 'g', 0, 0, "Enable debugging information", 0}, // These two are just so compiler explorer doesn't complain.
     { "asm", 'S', 0, 0, "Enable assembly output", 0}, 
+    { "sandbox", 0, 0, 0, "Disables most semantic analysis errors (type checking)", 0},
     //{ "print-ast", 0, 0},
     { 0 } 
 };
@@ -31,6 +32,8 @@ struct arguments {
     int silent, verbose;
     char* output_path;
 };
+
+extern parser_error_handler error_handler;
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     struct arguments *arguments = state->input;
@@ -67,11 +70,6 @@ int main(int argc, char **argv) {
     arguments.verbose = 0;
 
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
-    
-    if (argc == 1) {
-        return 1;
-    } 
-
     if ((f = fopen(arguments.input_path, "rb")) == NULL) {
         printf("Invalid input file path:\n");
         printf("%s\n", arguments.input_path);
@@ -87,8 +85,8 @@ int main(int argc, char **argv) {
     char file_buffer[fsize + 1];
     fread(file_buffer, fsize, 1, f);
     fclose(f);
-
-    file_buffer[fsize] = 0; //Set null terminator
+ 
+    file_buffer[fsize] = EOF; // Set EOF
 
     // Init Lexer
     init_lexer(file_buffer, fsize);
@@ -108,6 +106,9 @@ int main(int argc, char **argv) {
     
     print_errors();
     //if (arguments.verbose) printf("Beginning Code gen:\n");
+    if (error_handler.num_errors != 0) {
+        return 1;
+    }
     emit_ast(root);
     free_ast(root);
 

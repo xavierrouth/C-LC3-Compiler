@@ -127,9 +127,10 @@ static token_t eat_token(token_enum type)
     if (t.kind != type) {
         if (type == T_SEMICOLON) {
             parser_error_t error = {
-                .invalid_token = t,
+                .invalid_token = previous_token(),
                 .prev_token = previous_token(),
-                .type = ERROR_MISSING_SEMICOLON
+                .type = ERROR_MISSING_SEMICOLON,
+                .offset = 0
             };
             report_error(error);
         }
@@ -301,9 +302,10 @@ static ast_node_t parse_compound_statement();
 static bool check_missing_expression(ast_node_t expr) {
     if (expr == -1) {
         parser_error_t error = {
-            .invalid_token = get_token(),
+            .invalid_token = previous_token(),
             .prev_token = previous_token(),
-            .type = ERROR_MISSING_EXPRESSION
+            .type = ERROR_MISSING_EXPRESSION,
+            .offset = 1
         };
         report_error(error);
         return true;
@@ -506,6 +508,9 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
         uint16_t op_power = prefix_binding_power[op_type];
 
         ast_node_t child = parse_expression(op_power);
+        if (check_missing_expression(child))
+            return -1;
+
         left = ast_unary_op_init(op_type, child, PREFIX);
     }
     // TODO: Actually we might want to allow for empty expressions??. i.e return; or ();
@@ -541,20 +546,6 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
         op_token = peek_token();
         op_type = get_op(op_token.kind);
 
-        if (op_type == OP_INVALID) {
-            // We need an op here.
-            parser_error_t error = {
-                .prev_token = previous_token(),
-                .invalid_token = op_token, 
-                .type = ERROR_MISSING_SEMICOLON
-            };
-            //error_handler.in_construction = error; Not actaully needed 
-            report_error(error);
-            // Probably should skip the entire expression.
-            skip_statement();
-            return -1;
-        }
-
         // Handle 
         if (is_postfix(op_type)) {
             uint16_t op_power = postfix_binding_power[op_type];
@@ -584,10 +575,14 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
             next_token();
             // TODO: Test for ternary '?' then ':'
             right = parse_expression(op_power.r);
+            if (check_missing_expression(right))
+                break;
             left = ast_binary_op_init(op_type, left, right); // node =
             continue;
         }
+
         // Probably an error ehre:?
+        /**
         parser_error_t error = {
             .prev_token = previous_token(),
             .invalid_token = op_token, 
@@ -595,7 +590,7 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
         };
         report_error(error);
         // Probably should skip the entire expression.
-        //skip_statement();
+        skip_statement();*/
         break;
 
     } 
@@ -615,12 +610,10 @@ static ast_node_t parse_return_statement() {
 static ast_node_t parse_for_init_clause() {
     type_info_t type_info = parse_declaration_specifiers(); 
     // TODO: Make sure these are only auto, register, and a type.
-
     if (type_info.specifier_info.is_int || type_info.specifier_info.is_char) {
-        if (expect_token(T_IDENTIFIER)) {
-            token_t id_token = eat_token(T_IDENTIFIER);
-            return parse_declaration(type_info); // This eats semicolon
-        }
+        type_info.declarator = parse_declarator(&type_info, true);
+        return parse_declaration(type_info); // This eats semicolon
+        
     }
     
     // Go into pratt parsing:
@@ -817,11 +810,12 @@ static ast_node_t parse_function_definition(const type_info_t return_type) {
     }
     // Function with a body.
     else if (expect_token(T_LBRACE)){
-
         ast_node_t body = parse_compound_statement();
         node = ast_func_decl_init(body, parameters, return_type, id_token);
         return node;
     }
+
+    return node;
 
 }
 

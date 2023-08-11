@@ -40,7 +40,7 @@ static char next() {
     }
 
     if (Lexer.index > Lexer.size) {
-        return '\0';
+        return EOF;
     }
 
     c = Lexer.src[Lexer.index++];
@@ -70,6 +70,23 @@ static char skip() {
         c = next();
     }
     return c;
+}
+
+static void skip_block_comment() {
+    char c;
+    while (c = next()) {
+        if (c == EOF) {
+            // Error and return
+            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected */ to end block comment.\n");
+            return;
+        }
+        if (c == '*') {
+            if (next() == '/') {
+                return;
+            }
+        }
+        continue;
+    }
 }
 
 static void next_line() {
@@ -301,11 +318,15 @@ token_t get_token() {
                     move_to_str_buffer(contents, 2);
                     token.kind = T_ASSIGN_DIV;
                     return token;
-                }
+                } 
                 else if (c == '/') {
                     move_to_str_buffer(contents, 2);
                     token.kind = T_COMMENT;
                     next_line();
+                    return get_token();
+                }
+                else if (c == '*') {
+                    skip_block_comment();
                     return get_token();
                 }
                 else {

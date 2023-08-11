@@ -22,6 +22,7 @@ typedef struct PARSER_ERROR_STRUCT {
         ERROR_SYMBOL_UNKNOWN,
         ERROR_GENERAL,
     } type;
+    int16_t offset; // Offset from prev token.
 } parser_error_t;
 
 typedef struct PARSER_ERROR_HANDLER {
@@ -38,7 +39,7 @@ typedef struct PARSER_ERROR_HANDLER {
     uint32_t source_size;
 } parser_error_handler;
 
-void report_error(parser_error_t error);
+bool report_error(parser_error_t error);
 
 void init_error_handler(const char* source, uint32_t source_size);
 
