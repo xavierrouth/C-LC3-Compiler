@@ -4,6 +4,7 @@ C-LC3-Compiler is a modern, student built C compiler targeting the LC3 Assembly 
 
 This repository contains the source code for the compiler, as well as various tests. Currently, only a subset of the C language is supported. Some important features we are working on include:
 
+- Global Variables
 - Static Variables
 - Arrays
 - Structs and Unions
@@ -12,12 +13,13 @@ This repository contains the source code for the compiler, as well as various te
 
 ### Build Instructions
 To build the compiler locally,
-1. Ensure you have CMake, and clang installed.
+1. Ensure you have CMake, and clang installed. 
 2. `git clone https://github.com/xavierrouth/C-LC3-Compiler.git`
-3. `mkdir build`
-4. `cd build`
-5. `cmake ..`
-6. `make`
+3. `cd C-LC3-Compiler`
+4. `mkdir build`
+5. `cd build`
+6. `cmake ..`
+7. `make`
 
 To use the compiler without building from source we recommend using https://godbolt.org/.
 
@@ -54,4 +56,4 @@ This project uses the [LC3Tools](https://github.com/chiragsakhuja/lc3tools) repo
 The C-LC3-Compiler is developed and maintained by students from [HKN-Alpha](https://hkn-alpha.netlify.app/) at UIUC.
 
 ### Contributing and Bug Reporting
-If you find a bug, please notify <xrouth2 at illinois dot edu>. We are always open to contributions, feel free to submit PRs or open discussion about what can be improved.
+If you find a bug, please notify \<xrouth2 at illinois dot edu\>. We are always open to contributions, feel free to submit PRs or open discussion about what can be improved.
