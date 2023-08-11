@@ -4,6 +4,7 @@ C-LC3-Compiler is a modern, student built C compiler targeting the LC3 Assembly 
 
 This repository contains the source code for the compiler, as well as various tests. Currently, only a subset of the C language is supported. Some important features we are working on include:
 
+- Global Variables
 - Static Variables
 - Arrays
 - Structs and Unions
