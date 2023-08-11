@@ -12,12 +12,13 @@ This repository contains the source code for the compiler, as well as various te
 
 ### Build Instructions
 To build the compiler locally,
-1. Ensure you have CMake, and clang installed.
+1. Ensure you have CMake, and clang installed. 
 2. `git clone https://github.com/xavierrouth/C-LC3-Compiler.git`
-3. `mkdir build`
-4. `cd build`
-5. `cmake ..`
-6. `make`
+3. `cd C-LC3-Compiler`
+4. `mkdir build`
+5. `cd build`
+6. `cmake ..`
+7. `make`
 
 To use the compiler without building from source we recommend using https://godbolt.org/.
 
