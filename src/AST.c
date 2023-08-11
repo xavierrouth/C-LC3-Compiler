@@ -174,12 +174,19 @@ ast_node_t ast_program_init(ast_node_vector body) {
     return node;
 }
 
+ast_node_t ast_inline_asm_init(token_t token) {
+    ast_node_t node = ast_node_init(A_INLINE_ASM);
+    ast_instances[node].as.stmt.inline_asm.token = token;
+    return node;
+}
+
 // Use this same buffer for all the thingies
 extern char print_buffer[128];
 static const char* ast_type_to_str(ast_node_enum type) {
     switch(type) {
         case A_ASSIGN_EXPR: return "A_ASSIGN_EXPR";
         case A_BINARY_EXPR: return "A_BINARY_EXPR";
+        case A_INLINE_ASM: return "A_INLINE_ASM";
         case A_COMPOUND_STMT: return "A_COMPOUND_STMT";
         case A_PROGRAM: return "A_PROGRAM";
         case A_VAR_DECL: return "A_VAR_DECL";
@@ -378,6 +385,7 @@ void ast_traversal(ast_node_t root, ast_node_visitor* visitor) {
             break;
         }
         // Terminal nodes:
+        case A_INLINE_ASM:
         case A_PARAM_DECL:
         case A_INTEGER_LITERAL:
         case A_SYMBOL_REF:
@@ -419,6 +427,7 @@ void analysis(ast_node_t root) {
     return;
 }
 
+// TODO: Just grab the data so you don't have to write ast_instances[node] out lol.
 void print_ast_node(ast_node_t node, uint32_t indentation) {
     switch (ast_instances[node].type) {
         case A_PROGRAM: {
@@ -532,6 +541,15 @@ void print_ast_node(ast_node_t node, uint32_t indentation) {
                 "<node=%s, size=%d>\n", \
                 ast_type_to_str(ast_instances[node].type),
                 ast_instances[node].size);
+            printf_indent(indentation*3, print_buffer);
+            return;
+        }
+        case A_INLINE_ASM: {
+            snprintf(print_buffer, 128, 
+                "<node=%s, asm=\"%s\">\n",
+                ast_type_to_str(ast_instances[node].type),
+                ast_instances[node].as.stmt.inline_asm.token.contents
+            );
             printf_indent(indentation*3, print_buffer);
             return;
         }

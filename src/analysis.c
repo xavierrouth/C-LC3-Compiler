@@ -94,6 +94,7 @@ void analyze_ast_node(ast_node_t node_h) {
             symbol_ref_scopes[node_h] = curr_scope();
             break;
         }
+        case A_INLINE_ASM:
         case A_WHILE_STMT:
         case A_ASSIGN_EXPR: 
         case A_PROGRAM: 

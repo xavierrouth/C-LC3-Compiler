@@ -497,7 +497,7 @@ void emit_ast_node(ast_node_t node_h) {
         case A_PARAM_DECL: 
             // Don't do anything.
             return;
-        case A_VAR_DECL:
+        case A_VAR_DECL: {
             // Is global scope
             // We will have a global data section, instead of placing them in the same order
             // as they are declared in the program.
@@ -525,6 +525,28 @@ void emit_ast_node(ast_node_t node_h) {
             }
             emitf("\n");
             return;
+        }
+        case A_INLINE_ASM: {
+            static char inline_asm_buffer[128];
+            for (int i = 0; i < 128; i++) {
+                inline_asm_buffer[i] = 0;
+            }
+            // Copy contents to buffer, ignoring backslashes.
+            int j = 0;
+            for (int i = 0; i < 128; i++) {
+                char c = node.as.stmt.inline_asm.token.contents[i];
+                if (c == '\0') {
+                    break;
+                }
+                
+                if (c == '\\') {
+                    continue;
+                }
+                inline_asm_buffer[j++] = c;
+            }
+            emitf("%s\n", inline_asm_buffer);
+            return;
+        }
             
         case A_FUNCTION_CALL:
         case A_UNARY_EXPR:

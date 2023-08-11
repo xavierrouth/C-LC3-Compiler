@@ -693,6 +693,15 @@ static ast_node_t parse_if_statement() {
     return node;
 }
 
+static ast_node_t parse_inline_asm() {
+    eat_token(T_ASM);
+    eat_token(T_LPAREN);
+    token_t t = eat_token(T_STRLITERAL);
+    eat_token(T_RPAREN);
+    ast_node_t node = ast_inline_asm_init(t);
+    eat_token(T_SEMICOLON);
+    return node;
+}
 
 // Parse a statement that is in a function.
 static ast_node_t parse_statement() {
@@ -715,6 +724,9 @@ static ast_node_t parse_statement() {
     }
     else if (expect_token(T_FOR)) {
         return parse_for_statement();
+    }
+    else if(expect_token(T_ASM)) {
+        return parse_inline_asm();
     }
 
     // Attempt var declaration/
@@ -828,6 +840,8 @@ static ast_node_t parse_function_definition(const type_info_t return_type) {
 
 }
 
+
+
 static ast_node_t parse_toplevel_declaration() {
     // Parse function declaration or var / normal declaration, who knows what to chosoe! hahahhaha
     if (error_handler.abort) {
@@ -837,6 +851,10 @@ static ast_node_t parse_toplevel_declaration() {
         eat_token(T_END);
         return -1;
     }
+    if (expect_token(T_ASM)) {
+        return parse_inline_asm();
+    }
+
     token_t t = peek_token();
     type_info_t type_info = parse_declaration_specifiers();
     // Parse a bunch of declarators
@@ -855,7 +873,7 @@ static ast_node_t parse_toplevel_declaration() {
 
         return -1;
     }
-
+    
     if (expect_token(T_LPAREN)) {
         return parse_function_definition(type_info);
     }

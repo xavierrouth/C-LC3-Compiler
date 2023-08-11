@@ -97,6 +97,7 @@ typedef enum AST_NODE_ENUM {
     A_COMPOUND_STMT,
     A_RETURN_STMT,
     A_IF_STMT,
+    A_INLINE_ASM,
     // LOOPS:
     A_WHILE_STMT,
     A_FOR_STMT,
@@ -187,6 +188,9 @@ struct AST_NODE_STRUCT {
             struct {
                 ast_node_vector declarations;
             } decl;
+            struct {
+                token_t token;
+            } inline_asm;
         } stmt;
         // ==== Declarations: ====
         struct {
@@ -232,6 +236,7 @@ ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, toke
 ast_node_t ast_param_decl_init(type_info_t type_info, token_t token);
 ast_node_t ast_func_decl_init(ast_node_t body, ast_node_vector parameters, type_info_t type_info, token_t token);
 ast_node_t ast_program_init(ast_node_vector body);
+ast_node_t ast_inline_asm_init(token_t token);
 // Takes a token type and returns the corresponding OP type.
 ast_op_enum token_to_op(token_enum type);
 

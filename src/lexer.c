@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdint.h>
 
 static lexer_t Lexer;
 
@@ -96,8 +97,8 @@ static void next_line() {
     }
 }
 
-static int scan_symbol(char c) {
-    int length = 0;
+static uint16_t scan_symbol(char c) {
+    uint16_t length = 0;
     while (isalpha(c) || isdigit(c) || '_' == c) {
         c = next();
         length++;
@@ -106,9 +107,9 @@ static int scan_symbol(char c) {
     return length;
 }
 
-static int scan_int(char c) {
-    int length = 0;
-    static float_error = 0;
+static uint16_t scan_int(char c) {
+    uint16_t length = 0;
+    static int float_error = 0;
     while (isdigit(c)) {
         c = next();
         length++;
@@ -127,6 +128,23 @@ static int scan_int(char c) {
     }
     
     putback(c);
+    return length;
+}
+
+static uint16_t scan_string() {
+    uint16_t length = 0;
+    char c;
+    while (c = next()) {
+        length++;
+        if (c == '\\' && next() == '"') {
+            length++;
+            continue;
+        }
+        
+        if (c == '"') {
+            break;
+        }
+    }
     return length;
 }
 
@@ -197,7 +215,10 @@ static token_enum keyword(char *s) {
 	case 'w':
 		if (!strcmp(s, "while")) return T_WHILE;
 		break;
-	}
+    case '_':
+        if (!strcmp(s, "__asm")) return T_ASM;
+        break;
+    }
 	return 0;
 }
 
@@ -224,7 +245,7 @@ static token_enum char_to_token_type(char c) {
 static void move_to_str_buffer(char* contents, int len) {
     // Check errors::
     strncpy(id_buffer + id_buffer_idx, contents, len);
-    id_buffer_idx += len + 1;
+    id_buffer_idx += len + 1; // Leave space for null ptr.
     return;
 }
 // Get the next token, you probably don't want to be calling this from the parser.
@@ -448,7 +469,13 @@ token_t get_token() {
                     token.kind = T_BITXOR;
                     return token;
                 }
-
+            case '"': {
+                uint16_t len = scan_string() - 1;
+                contents++;
+                move_to_str_buffer(contents, len);
+                token.kind = T_STRLITERAL;
+                return token;
+            }
             // Single token ones:
             case '~':
             case '(':

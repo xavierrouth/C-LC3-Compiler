@@ -14,6 +14,7 @@ typedef struct TOKEN_DEBUG_INFO_STRUCT{
 // Rough groupings, some of the tokens take different meanings depending on the context.
 typedef enum TOKEN_KIND_ENUM {
     T_INVALID = -1, // 
+
     // ==== Operators ====
     T_ASSIGN, // = 
 
@@ -78,6 +79,7 @@ typedef enum TOKEN_KIND_ENUM {
     // Symbols / Literals
     T_IDENTIFIER, 
     T_INTLITERAL,
+    T_STRLITERAL, 
     T_COMMENT,
 
     // ==== Keywords ====
@@ -128,6 +130,11 @@ typedef enum TOKEN_KIND_ENUM {
     // Return
     T_RETURN,
     
+    // Extensions
+    T_ASM, // Inline assembly
+
+    
+
     // Helper
     T_START,
     T_END
@@ -137,6 +144,8 @@ static const char * token_type_to_str(token_enum type) {
     switch(type) {
         case T_IDENTIFIER: return "T_IDENTIFIER";
         case T_INTLITERAL: return "T_INTLITERAL";
+        case T_STRLITERAL: return "T_STRLITERAL";
+        case T_ASM: return "T_ASM";
         case T_ASSIGN: return "T_ASSIGN";
         case T_ADD: return "T_ADD";
         case T_SUB: return "T_SUB";
