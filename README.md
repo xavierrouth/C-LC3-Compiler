@@ -54,4 +54,4 @@ This project uses the [LC3Tools](https://github.com/chiragsakhuja/lc3tools) repo
 The C-LC3-Compiler is developed and maintained by students from [HKN-Alpha](https://hkn-alpha.netlify.app/) at UIUC.
 
 ### Contributing and Bug Reporting
-If you find a bug, please notify <xrouth2 at illinois dot edu>. We are always open to contributions, feel free to submit PRs or open discussion about what can be improved.
+If you find a bug, please notify \<xrouth2 at illinois dot edu\>. We are always open to contributions, feel free to submit PRs or open discussion about what can be improved.
