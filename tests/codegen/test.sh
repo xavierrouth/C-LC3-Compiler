@@ -13,7 +13,7 @@ cp -a $CODEGEN_TEST_DIR/lc3tools-tests/. $LC3_TOOLS_ROOT/src/test/tests/
 
 for filename in $CODEGEN_TEST_DIR/input/*.c; do
     # Run compiler on input to get asm
-    $C_LC3_ROOT/build/main "-i" $filename "-o" "$C_LC3_ROOT/out/out.asm"
+    $C_LC3_ROOT/build/main  "-o" "$C_LC3_ROOT/out/out.asm" $filename
 
     # Run test on output asm
     $LC3_TOOLS_ROOT/build/bin/$(basename $filename .c) $C_LC3_ROOT/out/out.asm

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 set(name "LC3 Compiler")
 set(version 1.0) # Version, where minor=semester_year, patch=semester_end_month, tweak=revision
-set(entrypoints "main" ) # Entrypoints to run the program
+set(entrypoints "main") # Entrypoints to run the program
 set(assignment_clean_rm) # Generated files that should be removed with "make clean"
 
 # Add color support to our messages.
@@ -68,7 +68,6 @@ target_link_libraries(test PRIVATE src)
 
 # Add the entrypoints using our libs and src code.
 
-foreach(entrypoint IN LISTS entrypoints)
-    add_executable(${entrypoint} ${entry_dir}/${entrypoint}.c)
-    target_link_libraries(${entrypoint} PRIVATE src) # "libs" removed
-endforeach()
+add_executable(main ${entry_dir}/main.c)
+target_link_libraries(main PRIVATE src) # "libs" removed
+set_target_properties(main PROPERTIES OUTPUT_NAME "lc3-compile")
