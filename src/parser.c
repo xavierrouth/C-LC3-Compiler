@@ -134,6 +134,15 @@ static token_t eat_token(token_enum type)
             };
             report_error(error);
         }
+        else if (type == T_RPAREN) {
+            parser_error_t error = {
+                .invalid_token = t,
+                .prev_token = previous_token(),
+                .type = ERROR_MISSING_RPAREN,
+                .offset = 0
+            };
+            report_error(error);
+        }
         else {
             parser_error_t error = {
                 .invalid_token = t,
@@ -828,11 +837,25 @@ static ast_node_t parse_toplevel_declaration() {
         eat_token(T_END);
         return -1;
     }
+    token_t t = peek_token();
     type_info_t type_info = parse_declaration_specifiers();
-
     // Parse a bunch of declarators
     type_info.declarator = parse_declarator(&type_info, true);
     
+    // TODO: Check validity in a better way
+    if (type_info.identifier_token.contents == NULL) {
+        // Error here
+        parser_error_t error = {
+            .invalid_token = t,
+            .prev_token = t,
+            .type = ERROR_UNEXPECTED_TOKEN,
+            .offset = 0
+        };
+        report_error(error);
+
+        return -1;
+    }
+
     if (expect_token(T_LPAREN)) {
         return parse_function_definition(type_info);
     }

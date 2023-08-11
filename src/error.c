@@ -7,9 +7,15 @@ parser_error_handler error_handler; // parser-scope error handler
 
 static void print_error(parser_error_t error) {
     token_t token = error.invalid_token;
+
+    // TODO: Should prevent random segfaults, can be handled better.
+    if (token.contents == NULL)
+        return;
+
     size_t token_length = strlen(token.contents);
     size_t len = strlen("Line # |") + error.offset;
     switch (error.type) {
+        // Parser Errors:
         case ERROR_MISSING_SEMICOLON: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected semicolon.\n");
             print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
@@ -28,6 +34,13 @@ static void print_error(parser_error_t error) {
             printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
+        case ERROR_MISSING_RPAREN: {
+            printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected closing parenthesis ')'.\n");
+            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            return;
+        }
+        // Analysis Errors:
         case ERROR_SYMBOL_REDECLARED: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Redeclaration of '%s'.\n", token.contents);
             print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
