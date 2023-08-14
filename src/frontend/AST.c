@@ -1,14 +1,12 @@
 #include "AST.h"
 #include "token.h"
-#include "util.h"
+#include "util/util.h"
 #include "symbol_table.h"
 #include "analysis.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-
-#define errorf printf
 
 #define MAX_NUM_AST_NODES 100
 
@@ -21,11 +19,11 @@ bool ast_instance_live[MAX_NUM_AST_NODES];
 struct AST_NODE_STRUCT ast_node_data(ast_node_t node) {
     // Returns the underlying data
     if (ast_instance_live[node] == false) {
-        errorf("Accessing dead ast node\n");
+        printf("Accessing dead ast node\n");
         return ast_instances[0];
     }
     if (!(node < MAX_NUM_AST_NODES)) {
-        errorf("Accessing invalid ast node\n");
+        printf("Accessing invalid ast node\n");
         return ast_instances[0];
     }
     return ast_instances[node];
@@ -43,7 +41,7 @@ ast_node_t ast_node_init(ast_node_enum type) {
             return i;
         }
     }
-    errorf("Ran out of instances\n");
+    printf("Ran out of instances\n");
     return -1; // Error here.
 }
 

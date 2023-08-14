@@ -15,7 +15,7 @@ void FibonacciTest(lc3::sim& sim, Tester& tester, double points) {
     sim.setRunInstLimit(50000);
     sim.run();
 
-    tester.verify("Correct Value", sim.readMem(0xFDFE) == fib(11), 1);
+    tester.verify("Correct Value", sim.readMem(0xFDFF) == fib(11), 1);
 }
 
 void testBringup(lc3::sim & sim) { }

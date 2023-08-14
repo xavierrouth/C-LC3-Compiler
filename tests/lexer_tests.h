@@ -1,5 +1,5 @@
-#include "lexer.h"
-#include "token.h"
+#include "frontend/lexer.h"
+#include "frontend/token.h"
 
 #include "munit.h"
 

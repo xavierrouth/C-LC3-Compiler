@@ -1,5 +1,5 @@
 #include "lexer.h"
-#include "util.h"
+#include "util/util.h"
 
 #include <string.h>
 #include <ctype.h>
@@ -257,8 +257,8 @@ token_t get_token() {
         char* contents = Lexer.src + Lexer.index - 1; //Maybe -1;
         token.contents = &id_buffer[id_buffer_idx];
         //&(id_buffer[id_buffer_idx]);
-        token.debug_info.col = Lexer.col;
-        token.debug_info.row = Lexer.row;
+        token.col = Lexer.col;
+        token.row = Lexer.row;
         switch(c) {
             case '\0':
                 token.kind = T_END;

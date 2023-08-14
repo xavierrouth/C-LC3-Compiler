@@ -2,13 +2,13 @@
 #include <stdio.h>
 #include <argp.h>
 
-#include "token.h"
-#include "lexer.h"
-#include "parser.h"
-#include "AST.h"
-#include "codegen.h"
-#include "analysis.h"
-#include "error.h"
+#include "frontend/lexer.h"
+#include "frontend/parser.h"
+#include "frontend/analysis.h"
+#include "frontend/error.h"
+
+#include "codegen/codegen.h"
+#include "codegen/asmprinter.h"
 
 const char* argp_program_version = "1.0";
 const char* argp_program_bug_address = "<xrouth2@illinois.edu>";
@@ -21,7 +21,8 @@ static struct argp_option options[] = {
     { "output", 'o', "FILE", 0, "Output path", 0},
     { "verbose", 'v', 0, 0, "Produce verbose output", 0},
     { "debug", 'g', 0, 0, "Enable debugging information", 0}, // These two are just so compiler explorer doesn't complain.
-    { "asm", 'S', 0, 0, "Enable assembly output", 0}, 
+    { "asm", 'S', 0, 0, "Enable assembly output", 0},
+    { "global-data", 0, 0, 0, "Use global data pointer instead of data section", 0},
     { "sandbox", 0, 0, 0, "Disables most semantic analysis errors (type checking)", 0},
     //{ "print-ast", 0, 0},
     { 0 } 
@@ -33,6 +34,7 @@ struct arguments {
     char* output_path;
 };
 
+extern asm_block_t program_block;
 extern parser_error_handler error_handler;
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -65,7 +67,6 @@ int main(int argc, char **argv) {
     struct arguments arguments;
 
     /* Default args:*/
-    //arguments.input_path = argv[argc-1]; // This seems like I could do it better.
     arguments.output_path = "out.asm";
     arguments.verbose = 0;
 
@@ -75,8 +76,6 @@ int main(int argc, char **argv) {
         printf("%s\n", arguments.input_path);
         return 1;
     }
-
-    set_out_file(arguments.output_path);
 
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
@@ -90,11 +89,8 @@ int main(int argc, char **argv) {
 
     // Init Lexer
     init_lexer(file_buffer, fsize);
-
-    //if (arguments.verbose) printf("Done Lexering\n");
-    
     init_parser(file_buffer, fsize);
-    //if (arguments.verbose) printf("Done Init Parser\n");
+
     build_ast();
 
     //if (arguments.verbose) printf("Done Building AST\n");
@@ -110,9 +106,8 @@ int main(int argc, char **argv) {
         return 1;
     }
     emit_ast(root);
-    free_ast(root);
 
-    close_out_file();
+    write_to_file(arguments.output_path, &program_block);
     
     return 0;
 }

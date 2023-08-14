@@ -83,7 +83,6 @@ typedef enum AST_OP_ENUM {
     OP_COMMA, // ','
     OP_SEMICOLON, // ';'
     
-
 } ast_op_enum;
 
 typedef enum AST_NODE_ENUM {
@@ -114,7 +113,7 @@ typedef enum AST_NODE_ENUM {
 // This is just a vector of handles.
 #define T ast_node_t
 #define NAME ast_node
-#include "vector.h"
+#include "util/vector.h"
 #undef T
 #undef NAME
 
@@ -249,9 +248,6 @@ typedef struct AST_NODE_VISITOR {
     } visitor_type;
     bool traversal_type; // POSTORDER or PREORDER
     union {
-        // struct {
-        //     ;
-        // } free_ast;
         struct {
             uint32_t indentation;
         } print_ast;
@@ -268,8 +264,6 @@ typedef struct AST_NODE_VISITOR {
 // Visitor options:
 
 void print_ast(ast_node_t root);
-
-void free_ast(ast_node_t root);
 
 void analysis(ast_node_t root);
 

@@ -1,15 +1,9 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-
 #include <stddef.h>
 #include <stdio.h>
-
-typedef struct TOKEN_DEBUG_INFO_STRUCT{
-    int row;
-    int col;
-} token_dbg_t;
-
+#include <stdint.h>
 
 // Rough groupings, some of the tokens take different meanings depending on the context.
 typedef enum TOKEN_KIND_ENUM {
@@ -133,8 +127,6 @@ typedef enum TOKEN_KIND_ENUM {
     // Extensions
     T_ASM, // Inline assembly
 
-    
-
     // Helper
     T_START,
     T_END
@@ -192,8 +184,9 @@ static const char * token_type_to_str(token_enum type) {
 typedef struct TOKEN_STRUCT 
 {
     token_enum kind;
-    token_dbg_t debug_info;
     char* contents; 
+    uint16_t row;
+    uint16_t col;
 } token_t;
 
 void print_token(const token_t* token);

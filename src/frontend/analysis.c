@@ -3,16 +3,18 @@
 
 #include <string.h>
 
-extern int32_t parent_scope[];
 
+extern symbol_table_t symbol_table;
+
+// Todo: Clean this up
 static int32_t scope_stack[8];
 static int32_t scope_stack_idx;
 
 static int32_t var_offsets[100];
 static int32_t param_offsets[100];
 
-int32_t symbol_ref_scopes[100];
-int32_t var_decl_scopes[100];
+int32_t symbol_ref_scopes[100]; // Maps symbol references to the scope it is used in
+int32_t var_decl_scopes[100]; // Maps variable declarations to the scope it occurs in
 
 static int32_t new_scope() {
     static int32_t i = 0;
@@ -26,7 +28,7 @@ static int32_t curr_scope() {
 static void enter_scope() {
     // TODO: Error checking.
     int32_t new = new_scope(); 
-    parent_scope[new] = curr_scope();
+    symbol_table.parent_scope[new] = curr_scope();
     scope_stack[++scope_stack_idx] = new;
 }
 

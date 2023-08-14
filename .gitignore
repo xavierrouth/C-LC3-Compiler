@@ -32,7 +32,6 @@
 *.app
 *.asm
 
-
 /.devcontainer
 /.vscode
 #
@@ -41,9 +40,5 @@
 /out
 /in
 
-
-
-
-
 # Module Build
-lc3tools/build
+lc3tools/build/*

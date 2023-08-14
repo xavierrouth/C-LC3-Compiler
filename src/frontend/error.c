@@ -1,6 +1,6 @@
 #include <string.h>
 
-#include "util.h"
+#include "util/util.h"
 #include "error.h"
 
 parser_error_handler error_handler; // parser-scope error handler
@@ -18,46 +18,46 @@ static void print_error(parser_error_t error) {
         // Parser Errors:
         case ERROR_MISSING_SEMICOLON: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected semicolon.\n");
-            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(token.debug_info.col + token_length + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(token.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.col + token_length + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_MISSING_EXPRESSION: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected an expression.\n");
-            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(token.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_UNEXPECTED_TOKEN: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Unexpected token.\n");
-            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(token.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_MISSING_RPAREN: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Expected closing parenthesis ')'.\n");
-            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(token.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         // Analysis Errors:
         case ERROR_SYMBOL_REDECLARED: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Redeclaration of '%s'.\n", token.contents);
-            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(token.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
         case ERROR_SYMBOL_UNKNOWN: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Symbol '%s' was not declared in this scope.\n", token.contents);
-            print_line(token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(token.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
 
         }
         default: {
             printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Something is wrong!\n");
-            print_line(error.prev_token.debug_info.row, error_handler.source, error_handler.source_size);
-            printf_indent(token.debug_info.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
+            print_line(error.prev_token.row, error_handler.source, error_handler.source_size);
+            printf_indent(token.col + len, ANSI_COLOR_GREEN"^\n"ANSI_COLOR_RESET);
             return;
         }
     }

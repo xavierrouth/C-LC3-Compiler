@@ -4,10 +4,12 @@
 #error "Template type T undefined for vector."
 #endif
 
-#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+#include "util.h"
+#include "memory/bump_allocator.h"
 
 #ifndef NAME
 #define NAME T
@@ -15,11 +17,15 @@
 
 #define V JOIN(NAME, vector)
 
+#define VECTOR_ALLOCATOR_SIZE 2048 * 16
 
+static char buffer[VECTOR_ALLOCATOR_SIZE];
 
-// For highlighting:
-
-//#ifdef T
+static bump_allocator_t vector_allocator = {
+    .start = &buffer[0],
+    .end = &buffer[VECTOR_ALLOCATOR_SIZE - 1],
+    .ptr = &buffer[VECTOR_ALLOCATOR_SIZE - 1]
+};
 
 typedef struct V {
     T* data;
@@ -32,15 +38,21 @@ static V JOIN(V, init)(int initial_capacity) {
     V container;
     container.size = 0;
     container.capacity = initial_capacity;
-    container.data = malloc(sizeof(T) * container.capacity);
+    container.data = (T*) bump_allocate(&vector_allocator, sizeof(T), sizeof(T) * container.capacity);
     return container;
 }
 
 static void JOIN(V, push)(V* container, T element) {
     if (container->size == container->capacity) {
-        container->capacity *= 2;
+        
         T* tmp = NULL;
-        tmp = realloc(container->data, container->capacity * sizeof(T));
+        // reallocate tmp = realloc(container->data, container->capacity * sizeof(T));
+        tmp = (T*) bump_allocate(&vector_allocator, sizeof(T), sizeof(T) * container->capacity * 2);
+        for (int i = 0; i < container->capacity; i++) {
+            tmp[i] = container->data[i];
+        }
+        container->capacity *= 2;
+        
         if (tmp == NULL) {
             // Fail::
             printf("Realloc Failed\n");
@@ -73,7 +85,6 @@ static void JOIN(V, replace)(V* container, T element, int index) {
 
 // This frees the list, this does not free the objects in the lsit.
 static void JOIN(V, free)(V container) {
-    free(container.data);
     return;
 }
 

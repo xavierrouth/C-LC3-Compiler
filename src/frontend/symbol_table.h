@@ -23,7 +23,11 @@ typedef struct SYMBOL_TABLE_ENTRY_STRUCT {
     int32_t scope;
 } symbol_table_entry_t;
 
-extern int32_t parent_scope[SYMBOL_TABLE_MAX_SIZE];
+typedef struct SYMBOL_TABLE_STRUCT {
+    symbol_table_entry_t data[SYMBOL_TABLE_MAX_SIZE];
+    uint16_t parent_scope[SYMBOL_TABLE_MAX_SIZE];
+    uint16_t idx;
+} symbol_table_t;
 
 void symbol_table_add(token_t identifier_token, int32_t scope, type_info_t return_type, int32_t type, int32_t size, int32_t offset);
 

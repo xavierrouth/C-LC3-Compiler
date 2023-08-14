@@ -1,5 +1,5 @@
-#include "parser.h"
-#include "AST.h"
+#include "frontend/parser.h"
+#include "frontend/AST.h"
 #include "munit.h"
 
 #include <stdbool.h>
@@ -39,7 +39,6 @@ static MunitResult test_helper(const ast_node_enum* nodes_gold, int gold_size, c
     }
         
     check_ast(root, nodes_result);
-    free_ast(root);
 
     for (int i = 0; i < gold_size; i++) {
         munit_assert_int(nodes_result[i], ==, nodes_gold[i]);

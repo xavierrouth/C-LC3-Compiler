@@ -7,7 +7,7 @@ void ReturnTest(lc3::sim& sim, Tester& tester, double points) {
     sim.setRunInstLimit(50000);
     sim.run();
 
-    tester.verify("Returned 10?", sim.readMem(0xFDFE) == 10, 1);
+    tester.verify("Returned 10?", sim.readMem(0xFDFF) == 10, 1);
 }
 
 void testBringup(lc3::sim & sim) { }

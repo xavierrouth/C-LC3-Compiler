@@ -1,0 +1,592 @@
+#include <stdio.h>
+#include <stdarg.h>
+#include <assert.h>
+
+#include "codegen.h"
+#include "asmprinter.h"
+#include "frontend/AST.h"
+#include "frontend/symbol_table.h"
+
+// The whole visitor pattern is stupid.
+
+// Register states
+#define UNUSED 0
+#define USED 1
+
+extern int32_t symbol_ref_scopes[];
+extern int32_t var_decl_scopes[];
+
+asm_block_t program_block;
+
+static codegen_state_t state;
+
+// Just know for now that regfile is 8 registesr???/
+static uint16_t get_empty_reg() {
+    for (uint16_t i = 0; i < 4; i++) {
+        if (state.regfile[i] == UNUSED) {
+            return i;
+        }
+    }
+    printf("No empty registers, please write a shorter expression.\n");
+    return -1; // Will j break I guess.
+}
+
+void emit_ast(ast_node_t root) {
+    emit_ast_node(root);
+    return;
+} 
+
+// TODO: Make this better:
+static char* current_function_name;
+
+static int16_t emit_expression_node(ast_node_t node_h);
+
+// static void get_address(symbol);
+
+// TODO: Optimization
+// If the result is unused We can greatly simplify this by just modifying the nzp in the if statement.
+static int16_t emit_condition_node(ast_node_t node_h) {
+    struct AST_NODE_STRUCT node = ast_node_data(node_h);
+
+    int16_t right = emit_expression_node(node.as.expr.binary.right);
+    state.regfile[right] = USED;
+    int16_t left = emit_expression_node(node.as.expr.binary.left);
+
+    state.regfile[right] = UNUSED;
+    state.regfile[left] = UNUSED;
+
+    int16_t ret = left;
+    int16_t scratch = right;
+
+    // Store result in left always.
+    #if 0 
+    switch (node.as.expr.binary.type) {
+        case OP_LT: { // Sub left from right.
+            emit_inst(format("NOT R%d, R%d", left, left), "evaluate '<");
+            emit_inst(format("ADD R%d, R%d, #1", left, left), NULL); //TODO was there supposed to be #1 here?
+            emit_inst(format("ADD R%d, R%d, R%d", ret, left, right), NULL);
+            break;
+        }
+        case OP_GT: {
+            emit_inst(format("NOT R%d, R%d", right, right), "evaluate '>");
+            emit_inst(format("ADD R%d, R%d, #1", right, right), NULL);
+            emit_inst(format("ADD R%d, R%d, R%d", ret, left, right), NULL);
+            break;
+        }
+        case OP_EQUALS: {
+            //TODO: Optimize this:
+            
+            format("NOT R%d, R%d ; Calculate '==' \n", left, left);
+            format("ADD R%d, R%d, #1\n", left, left);
+            format("ADD R%d, R%d, R%d\n", ret, left, right);
+            format("BRz #2\n"); // If its zero, skip the next stepa
+            format("AND R%d, R%d, #0\n", ret, ret); // Zero out reg 
+            format("BRz #2\n");
+            format("AND R%d, R%d, #0\n", ret, ret); // Need to put negative in this register
+            format("ADD R%d, R%d, #1\n", ret, ret); // This needs to be positive
+            */
+            break;
+        }
+        case OP_NOTEQUALS: {
+            //format("DONT DO NOTEQULAS");
+            break;
+        }
+
+    }
+    #endif
+    state.regfile[ret] = USED;
+    return ret;
+}
+
+// Sethi-Ullman Register Allocation for the expression rooted at this node.
+static int16_t emit_expression_node(ast_node_t node_h) {
+    
+    struct AST_NODE_STRUCT node = ast_node_data(node_h);
+
+    // TODO: Add immediates.
+    if (node.type == A_BINARY_EXPR) {
+        struct AST_NODE_STRUCT left = ast_node_data(node.as.expr.binary.left);
+        struct AST_NODE_STRUCT right = ast_node_data(node.as.expr.binary.right);
+        switch (node.as.expr.binary.type) {
+            case OP_ASSIGN: {
+                // Need to do lots of checking here, depending on type of lvalue assign does different things in assembly.
+                int16_t reg = emit_expression_node(node.as.expr.binary.right);
+                
+                // Dereference of an expression
+                if (left.type == A_UNARY_EXPR & left.as.expr.unary.type == OP_MUL) {
+                    // Treat the child of left as an address, and just store into that.
+                    int16_t addr = emit_expression_node(left.as.expr.unary.child);
+                    emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = reg, .arg2 = addr, .arg3 = 0 }, "dereference pointer", &program_block);
+                    state.regfile[addr] = UNUSED;
+                }
+
+                else {
+                    symbol_table_entry_t symbol = symbol_table_search(left.as.expr.symbol.token, symbol_ref_scopes[node.as.expr.binary.left]);
+                    // Static Variable:
+                    if (symbol.type_info.specifier_info.is_static) {
+                        char* var_name = format("%s.%s", current_function_name, symbol.identifier);
+                        emit_inst_comment((lc3_instruction_t) {.opcode = ST, .arg1 = reg, .label = var_name}, \
+                                        "assign to static variable", &program_block);
+                        state.regfile[reg] = UNUSED;
+                    }
+                    // Normal Variable
+                    else {
+                        emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = reg, .arg2 = 5, .arg3 = -1 * symbol.offset}, \
+                                        format("assign to variable \"%s\"", symbol.identifier), &program_block);
+                        state.regfile[reg] = UNUSED;
+                    }
+                }
+                //struct AST_NODE_STRUCT child = ast_node_data(node.as.)
+                
+                return reg;
+            }
+            case OP_ADD: {
+                int8_t r1 = 0;
+                // we can only use one immediate though.
+                if (left.type == A_INTEGER_LITERAL && left.as.expr.literal.value <= 15) {
+                    // If the leaf is an int literal, we can just use an immediate.
+                    r1 = emit_expression_node(node.as.expr.binary.right);
+                    int8_t val = left.as.expr.literal.value;
+                    emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r1, .arg2 = r1, .arg3 = val}, &program_block);
+                    state.regfile[r1] = USED;
+                }
+                else if (right.type == A_INTEGER_LITERAL && right.as.expr.literal.value <= 15) {
+                    r1 = emit_expression_node(node.as.expr.binary.left);
+                    int8_t val = right.as.expr.literal.value;
+                    emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r1, .arg2 = r1, .arg3 = val}, &program_block);
+                    state.regfile[r1] = USED;
+                }
+                else {
+                    r1 = emit_expression_node(node.as.expr.binary.left);
+                    state.regfile[r1] = USED;
+                    int8_t r2 = emit_expression_node(node.as.expr.binary.right);
+                    state.regfile[r2] = UNUSED;
+                    emit_inst((lc3_instruction_t) {.opcode = ADDreg, .arg1 = r1, .arg2 = r1, .arg3 = r2}, &program_block);
+                }
+            return r1;
+            }
+            case OP_SUB: {
+                int32_t r1 = 0;
+                // we can only use one immediate though.
+                // If the left side is literal, oh well we can't do anything about that???
+                if (right.type == A_INTEGER_LITERAL) {
+                    r1 = emit_expression_node(node.as.expr.binary.left);
+                    int32_t val = -1 * right.as.expr.literal.value;
+                    emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r1, .arg2 = r1, .arg3 = val}, &program_block);
+                    // TOOD: Only if the immediate is small enough
+                    state.regfile[r1] = USED;
+                }
+                else {
+                    // Otherwise the val is in a register somehow.
+                    r1 = emit_expression_node(node.as.expr.binary.left);
+                    state.regfile[r1] = USED;
+                    int32_t r2 = emit_expression_node(node.as.expr.binary.right);
+                    emit_inst((lc3_instruction_t) {.opcode = NOT, .arg1 = r2, .arg2 = r2}, &program_block);
+                    emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r2, .arg2 = r2, .arg3 = 1}, &program_block);
+                    emit_inst((lc3_instruction_t) {.opcode = ADDreg, .arg1 = r1, .arg2 = r1, .arg3 = r2}, &program_block);
+                    state.regfile[r2] = UNUSED;
+                }
+            return r1;
+            }
+            // Conditional Operators::
+            case OP_EQUALS: 
+            case OP_LT:
+            case OP_GT:
+            case OP_NOTEQUALS:
+            case OP_GT_EQUAL:
+            case OP_LT_EQUAL:
+                return emit_condition_node(node_h);  
+        }
+    }
+    else if (node.type == A_UNARY_EXPR) {
+        switch (node.as.expr.unary.type) {
+            /**
+            case OP_INCREMENT: {
+                if (node.as.expr.unary.order == POSTFIX) {
+                    // Scratchpad register
+                    uint8_t result = get_empty_reg();
+                    // Load variable, add to it, return variable
+                    // Need to support things like (*i)++;
+                    // Basically need to implement lvalues and rvalues.
+                    uint8_t symbol = emit_expression_node(node.as.expr.unary.child);
+
+                }   
+                else if (node.as.expr.unary.order == PREFIX) {
+                    // Increment, then return
+                }
+            }
+            */
+            case OP_ADD: {
+                // Litreally doens't do anything, just return 
+                return emit_expression_node(node.as.expr.unary.child);
+            }
+            case OP_SUB: {
+                // Get the register that the child expression is in.
+                int r = emit_expression_node(node.as.expr.unary.child);
+                // Negate it.
+                emit_inst((lc3_instruction_t) {.opcode = NOT, .arg1 = r, .arg2 = r}, &program_block);
+                emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r, .arg2 = r, .arg3 = 1}, &program_block);
+                return r; // Its stored in the same register still.
+            }
+            /** Address of identifier*/
+            case OP_BITAND: {
+                // Semant should have checked that this is a lvalue -> rvalue
+                struct AST_NODE_STRUCT child = ast_node_data(node.as.expr.unary.child);
+                ast_node_t child_h = node.as.expr.unary.child;
+                // Assert that it is an lvalue
+                assert(child.type == A_SYMBOL_REF);
+                symbol_table_entry_t symbol = symbol_table_search(child.as.expr.symbol.token, symbol_ref_scopes[child_h]);
+                uint8_t r = get_empty_reg();
+
+                // TODO: Global or Static Symbols (LEA)
+                if (symbol.type_info.specifier_info.is_static) {
+                    emit_inst_comment((lc3_instruction_t) {.opcode = LEA, .arg1 = r, .label = symbol.identifier}, "load address of static variable", &program_block);
+                }
+                else if (symbol.type == PARAMETER_ST_ENTRY) { // Is a parameter
+                    // Address of a parameter is just R5 + offset
+                    emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r, .arg2 = 5, .arg3 = symbol.offset + 4}, \
+                        format("take address of parameter \"%s\"", symbol.identifier), &program_block);
+                }
+                else { // Not a parameter
+                    // Address of local variable is just R5 + some other offset
+                    emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r, .arg2 = 5, .arg3 = -1 * symbol.offset}, \
+                        format("take address of local variable \"%s\"", symbol.identifier), &program_block);
+                }
+                return r;
+
+            }
+            /** Dereference*/
+            case OP_MUL: {
+                uint16_t r = emit_expression_node(node.as.expr.unary.child);
+                // Register contains an address.
+                emit_inst_comment((lc3_instruction_t) {.opcode = LDR, .arg1 = r, .arg2 = r, .arg3 = 0}, \
+                        "dereference register as pointer", &program_block);
+                return r;
+            }
+        }
+    }
+    else if (node.type == A_FUNCTION_CALL) {
+        // Push arguments right to left.
+        for (int i = node.as.expr.call.arguments.size - 1; i >= 0; i--) {
+            int r = emit_expression_node(node.as.expr.call.arguments.data[i]);
+            // Push r to stack, load next 
+            emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = -1}, &program_block);
+            emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = r, .arg2 = 6, .arg3 = 0}, \
+                        "push argument to stack", &program_block);
+            // newline
+        }
+        // TODO: Support calling arbitrary memory locations as functions.
+        char* identifier = ast_node_data(node.as.expr.call.symbol_ref).as.expr.symbol.token.contents;
+        emit_inst((lc3_instruction_t) {.opcode = JSR, .label = identifier}, &program_block);
+
+        // Handle Return Value:
+        int ret = get_empty_reg();
+        emit_inst_comment((lc3_instruction_t) {.opcode = LDR, .arg1 = ret, .arg2 = 6, .arg3 = 0}, \
+                        "load return value", &program_block);
+        emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = 1}, \
+                        "pop return value", &program_block);
+        emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = node.as.expr.call.arguments.size}, \
+                        "pop arguments", &program_block);
+        return ret;
+    }
+    else if (node.type == A_INTEGER_LITERAL) {
+        // We probably just want to place this in a constant pool and load from there.
+        // Get a register to place this in
+        int val = node.as.expr.literal.value;
+        // TODO: If val is > 15 then we have to materialize this int somehow.
+        int r1 = get_empty_reg();
+        emit_inst((lc3_instruction_t) {.opcode = ANDimm, .arg1 = r1, .arg2 = r1, .arg3 = 0}, &program_block);
+        if (val != 0) {
+            emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r1, .arg2 = r1, .arg3 = val}, &program_block);
+        }
+        state.regfile[r1] = USED;
+        return r1;
+    }
+    else if (node.type == A_SYMBOL_REF) {
+        // Do now
+        symbol_table_entry_t symbol = symbol_table_search(node.as.expr.symbol.token, symbol_ref_scopes[node_h]);
+        // Load 
+        // Parameters need a positive offset??
+        // Is a parameter
+        int r1 = get_empty_reg();
+        if (symbol.type_info.specifier_info.is_static) {
+            emit_inst_comment((lc3_instruction_t) {.opcode = LD, .arg1 = r1, .label = symbol.identifier}, \
+                        format("load static variable", symbol.identifier), &program_block);
+        }
+        else if (symbol.type == PARAMETER_ST_ENTRY) { // Is a parameter
+            emit_inst_comment((lc3_instruction_t) {.opcode = LDR, .arg1 = r1, .arg2 = 5, .arg3 = symbol.offset + 4}, \
+                        format("load parameter \"%s\"", symbol.identifier), &program_block);
+        }
+        else { // Not a parameter
+        emit_inst_comment((lc3_instruction_t) {.opcode = LDR, .arg1 = r1, .arg2 = 5, .arg3 = -1 * symbol.offset}, \
+                        format("load local variable \"%s\"", symbol.identifier), &program_block);
+        }
+        return r1;
+    }
+    printf(ANSI_COLOR_RED "error: " ANSI_COLOR_RESET "Unsupported C feature encountered, please rewrite your code to not use this feature.\n");
+    print_ast_node(node_h, 2);
+}
+
+void emit_ast_node(ast_node_t node_h) {
+    static uint16_t if_counter = 0;
+    static uint16_t while_counter = 0;
+    static uint16_t for_counter = 0;
+    if (node_h == -1) {
+        return;
+    }
+
+    struct AST_NODE_STRUCT node = ast_node_data(node_h);
+
+    state.regfile[0] = UNUSED;
+    state.regfile[1] = UNUSED;
+    state.regfile[2] = UNUSED;
+    state.regfile[3] = UNUSED;
+
+    switch (node.type) {
+        case A_PROGRAM: {
+            for (int i = 0; i < (node.as.program.body.size); i++)
+                emit_ast_node(node.as.program.body.data[i]);
+            //format("HALT\n");
+            return;
+        }
+        // Somehow we need to pattern match these two into the same instruction.
+        // Binops on immediates can be one instruction if the immediate is small enough.
+        // How does one even do that?
+        case A_RETURN_STMT: {
+            // Load the child into R0
+            // Check if its already in R0???
+            // No optimizations yet.
+            bool is_main = !strcmp(current_function_name, "main");
+
+            // Not main
+            int reg = emit_expression_node(node.as.stmt._return.expression);
+            if (!is_main) {
+                if (node.as.stmt._return.expression != -1) {
+                    
+                    // Write it into return value slot, which 
+                    emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = reg, .arg2 = 5, .arg3 = 3}, \
+                            "write return value, always R5 + 3", &program_block);
+                }
+                
+                // Need to know what funciton we are returning from somehow.
+                char* teardown_label = format("%s.teardown", current_function_name);
+                emit_inst((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 1, .label = teardown_label}, &program_block);
+            }
+
+            else { 
+                // Write reg to lD
+                emit_inst_comment((lc3_instruction_t) {.opcode = STI, .arg1 = reg, .label = "RETURN_SLOT"}, \
+                            "write return value from main", &program_block);
+            }
+            
+            return;
+        }
+        case A_WHILE_STMT: {
+            // Todo: Indent everything in the loop
+            char* loop_header_name = format("%s.while.%d", current_function_name, while_counter);
+            emit_label(loop_header_name, &program_block);
+            int32_t r_condition = emit_expression_node(node.as.stmt._while.condition);
+            
+            emit_inst_comment((lc3_instruction_t) {.opcode = ANDreg, .arg1 = r_condition, .arg2 = r_condition, .arg3 = r_condition}, \
+                        "load condition into NZP", &program_block);
+
+            char* loop_end_name  = format("%s.while.%d.end", current_function_name, while_counter);
+            emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = loop_end_name}, \
+                        "if false, skip over loop body", &program_block);
+
+            emit_ast_node(node.as.stmt._while.body);
+
+            emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 1, .label = loop_header_name}, \
+                        "test loop condition", &program_block);
+
+            emit_label(loop_end_name, &program_block);
+            while_counter++;
+            return;
+        }
+        case A_FOR_STMT: {
+            format("; Initialization Statement: \n");
+            emit_ast_node(node.as.stmt._for.initilization);
+            format("for_loop%d\n", while_counter);
+            format("; Condition Expression: \n");
+            int32_t r_condition = emit_expression_node(node.as.stmt._for.condition);
+            format("\n");
+            format("AND R%d, R%d, R%d  ; Load condition expr result into NZP\n", r_condition, r_condition, r_condition);
+            format("BRnz for_loop%d_end ; If false, skip over loop body\n", for_counter);
+            emit_ast_node(node.as.stmt._for.body);
+            format("; Increment Expression: \n");
+            emit_ast_node(node.as.stmt._for.update);
+            format("BRnzp for_loop%d ; Test loop condition again \n", for_counter);
+            format("for_loop%d_end\n", for_counter++);
+            return;
+        }
+        case A_IF_STMT: {
+            int16_t r_condition = emit_expression_node(node.as.stmt._if.condition);
+            format("\n");
+            format("AND R%d, R%d, R%d  ; Load condition expr result into NZP\n", r_condition, r_condition, r_condition);
+            // Else Statement:
+            if (node.as.stmt._if.else_stmt != -1) {
+                format("BRnz else_stmt%d ; Jump to else statement if condition is false\n", if_counter); // Otherwise fall through to if statement
+                emit_ast_node(node.as.stmt._if.if_stmt);
+                format("BRnz if_stmt%d_end\n", if_counter);
+                format("else_stmt%d\n", if_counter);
+                emit_ast_node(node.as.stmt._if.else_stmt);
+                format("if_stmt%d_end\n", if_counter++);
+            } // No Else Statement:
+            else {
+                format("BRnz if_stmt%d_end ; Jump over if block if condition is false\n", if_counter);
+                format("; Perform work for if block\n");
+                emit_ast_node(node.as.stmt._if.if_stmt);
+                format("if_stmt%d_end\n", if_counter++);
+            }
+            format("\n");
+            return;
+        }
+        case A_COMPOUND_STMT: {
+            for (int i = 0; i < (node.as.stmt.compound.statements.size); i++) {
+                emit_ast_node(node.as.stmt.compound.statements.data[i]);
+                emit_newline(&program_block);
+            }
+                
+            return;
+        }
+        case A_FUNCTION_DECL: {
+            bool is_main = !strcmp(node.as.func_decl.token.contents, "main");
+            current_function_name = node.as.func_decl.token.contents;
+
+            emit_label(current_function_name, &program_block);
+
+            if (!is_main) {
+                emit_comment("callee setup:", &program_block);
+
+                // TODO: Enable condensed callee setup. 
+                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = -1}, \
+                            "allocate spot for return value", &program_block);
+
+                emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = -1}, &program_block);
+
+                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 7, .arg2 = 6, .arg3 = 0}, \
+                            "push R7 (return address)", &program_block);
+
+                emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = -1}, &program_block);
+
+                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 5, .arg2 = 6, .arg3 = 0}, \
+                            "push R5 (caller frame pointer)", &program_block);
+
+                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 5, .arg2 = 6, .arg3 = -1}, \
+                            "set frame pointer", &program_block);
+
+                emit_comment("function body:", &program_block);
+                emit_ast_node(node.as.func_decl.body);
+
+                char* teardown_label = format("%s.teardown", current_function_name);
+                emit_label(teardown_label, &program_block);
+                
+                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 5, .arg3 = 1}, \
+                            "pop local variables", &program_block);
+                
+                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 5, .arg2 = 6, .arg3 = 0}, \
+                            "pop frame pointer", &program_block);
+
+                emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = 1}, &program_block);
+
+                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 7, .arg2 = 6, .arg3 = 0}, \
+                            "pop return address", &program_block);
+
+                emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = 1}, &program_block);
+                emit_inst((lc3_instruction_t) {.opcode = RET}, &program_block);
+                emit_comment("end function", &program_block);
+            }
+
+            else if (is_main) {
+                emit_ast_node(node.as.func_decl.body);
+                emit_inst((lc3_instruction_t) {.opcode = HALT}, &program_block);
+            }
+            return;
+        }
+        case A_PARAM_DECL: 
+            // Don't do anything.
+            return;
+        case A_VAR_DECL: {
+            // Is global scope
+            // We will have a global data section, instead of placing them in the same order
+            // as they are declared in the program.
+            // Global data section is at address x5000
+            // Global variable
+            // This decl needs to point to a 
+            if (var_decl_scopes[node_h] == 0) { 
+                uint16_t init_value = 0;
+                if (node.as.var_decl.initializer != -1) {
+                    init_value = ast_node_data(node.as.var_decl.initializer).as.expr.literal.value;
+                } 
+                emit_data(node.as.var_decl.token.contents, (lc3_directive_t) {.type = FILL, .value = init_value}, &program_block);
+                return;
+            }
+            
+            else if (node.as.var_decl.type_info.specifier_info.is_static) {
+                // Static Local variable
+                char* identifier = format("%s.%s", current_function_name, node.as.var_decl.token.contents);
+                // TODO: EMPHASIZE the fact that initial value of static vars in functions are implementation defined.
+                if (node.as.var_decl.initializer != -1) {
+                    uint16_t init_value = ast_node_data(node.as.var_decl.initializer).as.expr.literal.value;
+                    emit_data(identifier, (lc3_directive_t) {.type = FILL, .value = init_value}, &program_block);
+                }
+                else {
+                    emit_data(identifier, (lc3_directive_t) {.type = FILL, .value = 0xECEB}, &program_block);
+                }
+                return;
+            }
+            else {
+                // Nonstatic Local Variable, ideally we should insert this 
+                // allocate space for local variable
+                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = -1}, \
+                        format("Allocate space for \"%s\"", node.as.var_decl.token.contents), &program_block);
+
+                if (node.as.var_decl.initializer != -1) {
+                    // TOOD: Assignment nodes should not really be separate, there should be an assignemnt expression.
+                    // But for now, we can kepe initialization separate, as for static ints it works different I suppose
+                    // Load a reg with the initializer value
+                    int reg = emit_expression_node(node.as.var_decl.initializer);
+                    symbol_table_entry_t symbol = symbol_table_search(node.as.var_decl.token, var_decl_scopes[node_h]);
+
+                    emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = reg, .arg2 = 5, .arg3 = -1 * symbol.offset}, \
+                            format("Initialize \"%s\"", symbol.identifier), &program_block);
+
+                    state.regfile[reg] = UNUSED;
+                }
+                // newline?
+                return;
+            }
+            
+        }
+        case A_INLINE_ASM: {
+            static char inline_asm_buffer[128];
+            for (int i = 0; i < 128; i++) {
+                inline_asm_buffer[i] = 0;
+            }
+            // Copy contents to buffer, ignoring backslashes.
+            int j = 0;
+            for (int i = 0; i < 128; i++) {
+                char c = node.as.stmt.inline_asm.token.contents[i];
+                if (c == '\0') {
+                    break;
+                }
+                
+                if (c == '\\') {
+                    continue;
+                }
+                inline_asm_buffer[j++] = c;
+            }
+            emit_label(inline_asm_buffer, &program_block);
+            return;
+        }
+            
+        case A_FUNCTION_CALL:
+        case A_UNARY_EXPR:
+        case A_BINARY_EXPR: 
+        case A_INTEGER_LITERAL: 
+        case A_SYMBOL_REF: 
+            emit_expression_node(node_h);
+            return;
+        
+    }
+}

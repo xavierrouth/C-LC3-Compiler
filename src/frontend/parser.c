@@ -4,7 +4,7 @@
 #include <assert.h>
 
 #include "error.h"
-#include "util.h"
+#include "util/util.h"
 #include "parser.h"
 #include "analysis.h"
 
@@ -839,8 +839,6 @@ static ast_node_t parse_function_definition(const type_info_t return_type) {
     return node;
 
 }
-
-
 
 static ast_node_t parse_toplevel_declaration() {
     // Parse function declaration or var / normal declaration, who knows what to chosoe! hahahhaha
