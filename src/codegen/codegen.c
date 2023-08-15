@@ -59,22 +59,31 @@ static int16_t emit_condition_node(ast_node_t node_h) {
     int16_t scratch = right;
 
     // Store result in left always.
-    #if 0 
     switch (node.as.expr.binary.type) {
         case OP_LT: { // Sub left from right.
-            emit_inst(format("NOT R%d, R%d", left, left), "evaluate '<");
-            emit_inst(format("ADD R%d, R%d, #1", left, left), NULL); //TODO was there supposed to be #1 here?
-            emit_inst(format("ADD R%d, R%d, R%d", ret, left, right), NULL);
+
+            emit_inst_comment((lc3_instruction_t) {.opcode = NOT, .arg1 = left, .arg2 = left}, "evaluate '<'", &program_block);
+            emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = left, .arg2 = left, .arg3 = 1}, &program_block);
+            emit_inst((lc3_instruction_t) {.opcode = ADDreg, .arg1 = ret, .arg2 = left, .arg3 = right}, &program_block);
+
             break;
         }
         case OP_GT: {
-            emit_inst(format("NOT R%d, R%d", right, right), "evaluate '>");
-            emit_inst(format("ADD R%d, R%d, #1", right, right), NULL);
-            emit_inst(format("ADD R%d, R%d, R%d", ret, left, right), NULL);
+
+            emit_inst_comment((lc3_instruction_t) {.opcode = NOT, .arg1 = right, .arg2 = right}, "evaluate '>'", &program_block);
+            emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = right, .arg2 = right, .arg3 = 1}, &program_block);
+            emit_inst((lc3_instruction_t) {.opcode = ADDreg, .arg1 = ret, .arg2 = left, .arg3 = right}, &program_block);
+
             break;
         }
         case OP_EQUALS: {
             //TODO: Optimize this:
+            emit_comment("please don't do equalsequals yet I am so sorry", &program_block);
+            #if 0
+            emit_inst_comment((lc3_instruction_t) {.opcode = NOT, .arg1 = left, .arg2 = left}, "evaluate '=='", &program_block);
+            emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = left, .arg2 = left, .arg3 = 1}, &program_block);
+            emit_inst((lc3_instruction_t) {.opcode = ADDreg, .arg1 = ret, .arg2 = left, .arg3 = right}, &program_block);
+
             
             format("NOT R%d, R%d ; Calculate '==' \n", left, left);
             format("ADD R%d, R%d, #1\n", left, left);
@@ -84,7 +93,7 @@ static int16_t emit_condition_node(ast_node_t node_h) {
             format("BRz #2\n");
             format("AND R%d, R%d, #0\n", ret, ret); // Need to put negative in this register
             format("ADD R%d, R%d, #1\n", ret, ret); // This needs to be positive
-            */
+            #endif
             break;
         }
         case OP_NOTEQUALS: {
@@ -93,7 +102,6 @@ static int16_t emit_condition_node(ast_node_t node_h) {
         }
 
     }
-    #endif
     state.regfile[ret] = USED;
     return ret;
 }
@@ -359,24 +367,25 @@ void emit_ast_node(ast_node_t node_h) {
             bool is_main = !strcmp(current_function_name, "main");
 
             // Not main
-            int reg = emit_expression_node(node.as.stmt._return.expression);
             if (!is_main) {
                 if (node.as.stmt._return.expression != -1) {
-                    
+                    int16_t reg = emit_expression_node(node.as.stmt._return.expression);
                     // Write it into return value slot, which 
                     emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = reg, .arg2 = 5, .arg3 = 3}, \
                             "write return value, always R5 + 3", &program_block);
                 }
-                
                 // Need to know what funciton we are returning from somehow.
                 char* teardown_label = format("%s.teardown", current_function_name);
                 emit_inst((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 1, .label = teardown_label}, &program_block);
             }
-
             else { 
-                // Write reg to lD
-                emit_inst_comment((lc3_instruction_t) {.opcode = STI, .arg1 = reg, .label = "RETURN_SLOT"}, \
+                // Write reg to return slot
+                if ((node.as.stmt._return.expression != -1)) {
+                    int16_t reg = emit_expression_node(node.as.stmt._return.expression);
+                    emit_inst_comment((lc3_instruction_t) {.opcode = STI, .arg1 = reg, .label = "RETURN_SLOT"}, \
                             "write return value from main", &program_block);
+                }
+                emit_inst((lc3_instruction_t) {.opcode = HALT}, &program_block);
             }
             
             return;
@@ -384,13 +393,15 @@ void emit_ast_node(ast_node_t node_h) {
         case A_WHILE_STMT: {
             // Todo: Indent everything in the loop
             char* loop_header_name = format("%s.while.%d", current_function_name, while_counter);
+            char* loop_end_name  = format("%s.while.%d.end", current_function_name, while_counter);
+
             emit_label(loop_header_name, &program_block);
             int32_t r_condition = emit_expression_node(node.as.stmt._while.condition);
             
             emit_inst_comment((lc3_instruction_t) {.opcode = ANDreg, .arg1 = r_condition, .arg2 = r_condition, .arg3 = r_condition}, \
                         "load condition into NZP", &program_block);
 
-            char* loop_end_name  = format("%s.while.%d.end", current_function_name, while_counter);
+            
             emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = loop_end_name}, \
                         "if false, skip over loop body", &program_block);
 
@@ -404,41 +415,76 @@ void emit_ast_node(ast_node_t node_h) {
             return;
         }
         case A_FOR_STMT: {
-            format("; Initialization Statement: \n");
+            emit_comment("for loop initiailization", &program_block);
+
             emit_ast_node(node.as.stmt._for.initilization);
-            format("for_loop%d\n", while_counter);
-            format("; Condition Expression: \n");
+
+            char* loop_header_name = format("%s.for.%d", current_function_name, for_counter);
+            char* loop_end_name  = format("%s.for.%d.end", current_function_name, for_counter);
+
+            emit_label(loop_header_name, &program_block);
+
+            emit_comment("test condition", &program_block);
             int32_t r_condition = emit_expression_node(node.as.stmt._for.condition);
-            format("\n");
-            format("AND R%d, R%d, R%d  ; Load condition expr result into NZP\n", r_condition, r_condition, r_condition);
-            format("BRnz for_loop%d_end ; If false, skip over loop body\n", for_counter);
+            emit_newline(&program_block);
+
+            emit_inst_comment((lc3_instruction_t) {.opcode = ANDreg, .arg1 = r_condition, .arg2 = r_condition, .arg3 = r_condition}, \
+                        "load condition into NZP", &program_block);
+            
+            
+            emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = loop_end_name}, \
+                        "if false, skip over loop body", &program_block);
+
             emit_ast_node(node.as.stmt._for.body);
-            format("; Increment Expression: \n");
+
+            emit_comment("increment expression", &program_block);
             emit_ast_node(node.as.stmt._for.update);
-            format("BRnzp for_loop%d ; Test loop condition again \n", for_counter);
-            format("for_loop%d_end\n", for_counter++);
+
+            emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 1, .label = loop_header_name}, \
+                        "test loop condition again", &program_block);
+
+            emit_label(loop_end_name, &program_block);
+
+            for_counter++;
             return;
         }
         case A_IF_STMT: {
             int16_t r_condition = emit_expression_node(node.as.stmt._if.condition);
-            format("\n");
-            format("AND R%d, R%d, R%d  ; Load condition expr result into NZP\n", r_condition, r_condition, r_condition);
+            emit_newline(&program_block);
+            emit_inst_comment((lc3_instruction_t) {.opcode = ANDreg, .arg1 = r_condition, .arg2 = r_condition, .arg3 = r_condition}, \
+                        "load condition into NZP", &program_block);
+
+            char* if_statement_end  = format("%s.if.%d.end", current_function_name, if_counter);
+            char* else_statement_name  = format("%s.if.%d", current_function_name, if_counter);
+
             // Else Statement:
             if (node.as.stmt._if.else_stmt != -1) {
-                format("BRnz else_stmt%d ; Jump to else statement if condition is false\n", if_counter); // Otherwise fall through to if statement
+                emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = else_statement_name}, \
+                        "if false, jump to else statement", &program_block);
+
+                emit_newline(&program_block);
                 emit_ast_node(node.as.stmt._if.if_stmt);
-                format("BRnz if_stmt%d_end\n", if_counter);
-                format("else_stmt%d\n", if_counter);
+
+                emit_inst((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = if_statement_end}, &program_block);
+                
+                emit_label(else_statement_name, &program_block);
+
+                emit_newline(&program_block);
                 emit_ast_node(node.as.stmt._if.else_stmt);
-                format("if_stmt%d_end\n", if_counter++);
+
+                emit_label(if_statement_end, &program_block);
+
             } // No Else Statement:
             else {
-                format("BRnz if_stmt%d_end ; Jump over if block if condition is false\n", if_counter);
-                format("; Perform work for if block\n");
+                emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = if_statement_end}, \
+                        "if false, jump over statement", &program_block);
+                emit_newline(&program_block);
                 emit_ast_node(node.as.stmt._if.if_stmt);
-                format("if_stmt%d_end\n", if_counter++);
+                
+                emit_label(if_statement_end, &program_block);
             }
-            format("\n");
+            if_counter++;
+            
             return;
         }
         case A_COMPOUND_STMT: {
@@ -474,6 +520,8 @@ void emit_ast_node(ast_node_t node_h) {
 
                 emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 5, .arg2 = 6, .arg3 = -1}, \
                             "set frame pointer", &program_block);
+                
+                emit_newline(&program_block);
 
                 emit_comment("function body:", &program_block);
                 emit_ast_node(node.as.func_decl.body);
@@ -495,11 +543,12 @@ void emit_ast_node(ast_node_t node_h) {
                 emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = 1}, &program_block);
                 emit_inst((lc3_instruction_t) {.opcode = RET}, &program_block);
                 emit_comment("end function", &program_block);
+                emit_newline(&program_block);
             }
 
             else if (is_main) {
                 emit_ast_node(node.as.func_decl.body);
-                emit_inst((lc3_instruction_t) {.opcode = HALT}, &program_block);
+                //emit_inst((lc3_instruction_t) {.opcode = HALT}, &program_block);
             }
             return;
         }
