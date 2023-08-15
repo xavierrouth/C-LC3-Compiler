@@ -510,12 +510,12 @@ void emit_ast_node(ast_node_t node_h) {
 
                 emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = -1}, &program_block);
 
-                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 7, .arg2 = 6, .arg3 = 0}, \
+                emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = 7, .arg2 = 6, .arg3 = 0}, \
                             "push R7 (return address)", &program_block);
 
                 emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = -1}, &program_block);
 
-                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 5, .arg2 = 6, .arg3 = 0}, \
+                emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = 5, .arg2 = 6, .arg3 = 0}, \
                             "push R5 (caller frame pointer)", &program_block);
 
                 emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 5, .arg2 = 6, .arg3 = -1}, \
@@ -532,12 +532,12 @@ void emit_ast_node(ast_node_t node_h) {
                 emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 5, .arg3 = 1}, \
                             "pop local variables", &program_block);
                 
-                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 5, .arg2 = 6, .arg3 = 0}, \
+                emit_inst_comment((lc3_instruction_t) {.opcode = LDR, .arg1 = 5, .arg2 = 6, .arg3 = 0}, \
                             "pop frame pointer", &program_block);
 
                 emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = 1}, &program_block);
 
-                emit_inst_comment((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 7, .arg2 = 6, .arg3 = 0}, \
+                emit_inst_comment((lc3_instruction_t) {.opcode = LDR, .arg1 = 7, .arg2 = 6, .arg3 = 0}, \
                             "pop return address", &program_block);
 
                 emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = 6, .arg2 = 6, .arg3 = 1}, &program_block);
