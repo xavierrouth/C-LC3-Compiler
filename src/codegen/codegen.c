@@ -300,6 +300,8 @@ static int16_t emit_expression_node(ast_node_t node_h) {
             emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = r, .arg2 = 6, .arg3 = 0}, \
                         "push argument to stack", &program_block);
             // newline
+            codegen_state.regfile[r] = UNUSED;
+            emit_newline(&program_block);
         }
         // TODO: Support calling arbitrary memory locations as functions.
         char* identifier = ast_node_data(node.as.expr.call.symbol_ref).as.expr.symbol.token.contents;
