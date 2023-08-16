@@ -119,6 +119,7 @@ static int16_t emit_expression_node(ast_node_t node_h) {
             case OP_ASSIGN: {
                 // Need to do lots of checking here, depending on type of lvalue assign does different things in assembly.
                 int16_t reg = emit_expression_node(node.as.expr.binary.right);
+                codegen_state.regfile[reg] = USED;
                 
                 // Dereference of an expression
                 if (left.type == A_UNARY_EXPR & left.as.expr.unary.type == OP_MUL) {
@@ -135,13 +136,13 @@ static int16_t emit_expression_node(ast_node_t node_h) {
                         char* var_name = format("%s.%s", current_function_name, symbol.identifier);
                         emit_inst_comment((lc3_instruction_t) {.opcode = ST, .arg1 = reg, .label = var_name}, \
                                         "assign to static variable", &program_block);
-                        codegen_state.regfile[reg] = UNUSED;
+                        
                     }
                     // Normal Variable
                     else {
                         emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = reg, .arg2 = 5, .arg3 = -1 * symbol.offset}, \
                                         format("assign to variable \"%s\"", symbol.identifier), &program_block);
-                        codegen_state.regfile[reg] = UNUSED;
+                        
                     }
                 }
                 //struct AST_NODE_STRUCT child = ast_node_data(node.as.)
@@ -199,13 +200,16 @@ static int16_t emit_expression_node(ast_node_t node_h) {
             case OP_MUL: {
                 link_multiply();
                 int32_t r1 = emit_expression_node(node.as.expr.binary.left);
+                codegen_state.regfile[r1] = USED;
                 int32_t r2 = emit_expression_node(node.as.expr.binary.right);
+                codegen_state.regfile[r2] = USED;
                 emit_inst((lc3_instruction_t) {.opcode = ST, .arg1 = r1, .label = "MULTIPLY_OP1"}, &program_block);
                 emit_inst((lc3_instruction_t) {.opcode = ST, .arg1 = r2, .label = "MULTIPLY_OP2"}, &program_block);
                 emit_inst((lc3_instruction_t) {.opcode = JSR, .label = "MULTIPLY"}, &program_block);
                 emit_inst((lc3_instruction_t) {.opcode = LD, .arg1 = r1, .label = "MULTIPLY_OUTPUT"}, &program_block);
 
-                codegen_state.regfile[r2] = UNUSED;
+                
+                
 
                 return r1;
                 
