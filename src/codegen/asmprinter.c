@@ -23,15 +23,15 @@ static bump_allocator_t printer_allocator = {
 static asm_printer_state_t printer_state;
 
 // Unclear if this should be part of the printer state.
-static FILE* File;
+static FILE* outfile;
 
 void set_out_file(char* path) {
-    File = fopen(path, "w");
+    outfile = fopen(path, "w");
     return;
 }
 
 void close_out_file(void) {
-    fclose(File);
+    fclose(outfile);
 }
 
 static const char* format(const char* fmt, ...) {
@@ -136,7 +136,7 @@ static const char* format_inst(lc3_instruction_t* inst) {
 static int write(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    int len = vfprintf(File, fmt, args);
+    int len = vfprintf(outfile, fmt, args);
     va_end(args);
     return len;
 }
@@ -226,18 +226,32 @@ static void write_program_header() {
 
 static void write_program_footer() {
     write("\n");
-    write("USER_STACK .FILL xFDFF\nRETURN_SLOT .FILL xFDFF\n.END\n");
+    write("USER_STACK .FILL xFDFF\nRETURN_SLOT .FILL xFDFF\n");
     write("\n");
 }
+
+bool multiplication_dependency;
+
+void link_multiply() {
+    multiplication_dependency = true;
+}
+// Links subroutine
+
+#include "multiply.h"
 
 void write_to_file(char* path, asm_block_t* root) {
     set_out_file(path);
     write_program_header();
+    
 
     //todo Loop:
     write_block(root);
 
     write_program_footer();
+    if (multiplication_dependency) {
+        write(multiply_asm);
+    }
+    write(".END\n");
     close_out_file();
 }
 
@@ -304,10 +318,5 @@ void emit_inst_comment(lc3_instruction_t inst, char* comment, asm_block_t* block
     block->instructions[block->instructions_size++] = bundle;
 }
 
-/**
-static void add_to_block(ast_instruction_t* inst, asm_block_t* block) {
-
-}
-*/
 
 

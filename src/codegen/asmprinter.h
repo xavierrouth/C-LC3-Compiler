@@ -94,4 +94,6 @@ void emit_inst_comment(lc3_instruction_t inst, char* comment, asm_block_t* block
 
 void emit_newline(asm_block_t* block);
 
+void link_multiply();
+
 #endif

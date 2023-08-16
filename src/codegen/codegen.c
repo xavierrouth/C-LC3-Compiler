@@ -9,7 +9,7 @@
 
 // The whole visitor pattern is stupid.
 
-// Register states
+// Register codegen_states
 #define UNUSED 0
 #define USED 1
 
@@ -18,12 +18,12 @@ extern int32_t var_decl_scopes[];
 
 asm_block_t program_block;
 
-static codegen_state_t state;
+static codegen_state_t codegen_state;
 
 // Just know for now that regfile is 8 registesr???/
 static uint16_t get_empty_reg() {
     for (uint16_t i = 0; i < 4; i++) {
-        if (state.regfile[i] == UNUSED) {
+        if (codegen_state.regfile[i] == UNUSED) {
             return i;
         }
     }
@@ -34,7 +34,7 @@ static uint16_t get_empty_reg() {
 void emit_ast(ast_node_t root) {
     emit_ast_node(root);
     return;
-} 
+}
 
 // TODO: Make this better:
 static char* current_function_name;
@@ -44,16 +44,16 @@ static int16_t emit_expression_node(ast_node_t node_h);
 // static void get_address(symbol);
 
 // TODO: Optimization
-// If the result is unused We can greatly simplify this by just modifying the nzp in the if statement.
+// If the result is unused We can greatly simplify this by just modifying the nzp in the if codegen_statement.
 static int16_t emit_condition_node(ast_node_t node_h) {
     struct AST_NODE_STRUCT node = ast_node_data(node_h);
 
     int16_t right = emit_expression_node(node.as.expr.binary.right);
-    state.regfile[right] = USED;
+    codegen_state.regfile[right] = USED;
     int16_t left = emit_expression_node(node.as.expr.binary.left);
 
-    state.regfile[right] = UNUSED;
-    state.regfile[left] = UNUSED;
+    codegen_state.regfile[right] = UNUSED;
+    codegen_state.regfile[left] = UNUSED;
 
     int16_t ret = left;
     int16_t scratch = right;
@@ -102,7 +102,7 @@ static int16_t emit_condition_node(ast_node_t node_h) {
         }
 
     }
-    state.regfile[ret] = USED;
+    codegen_state.regfile[ret] = USED;
     return ret;
 }
 
@@ -125,7 +125,7 @@ static int16_t emit_expression_node(ast_node_t node_h) {
                     // Treat the child of left as an address, and just store into that.
                     int16_t addr = emit_expression_node(left.as.expr.unary.child);
                     emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = reg, .arg2 = addr, .arg3 = 0 }, "dereference pointer", &program_block);
-                    state.regfile[addr] = UNUSED;
+                    codegen_state.regfile[addr] = UNUSED;
                 }
 
                 else {
@@ -135,13 +135,13 @@ static int16_t emit_expression_node(ast_node_t node_h) {
                         char* var_name = format("%s.%s", current_function_name, symbol.identifier);
                         emit_inst_comment((lc3_instruction_t) {.opcode = ST, .arg1 = reg, .label = var_name}, \
                                         "assign to static variable", &program_block);
-                        state.regfile[reg] = UNUSED;
+                        codegen_state.regfile[reg] = UNUSED;
                     }
                     // Normal Variable
                     else {
                         emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = reg, .arg2 = 5, .arg3 = -1 * symbol.offset}, \
                                         format("assign to variable \"%s\"", symbol.identifier), &program_block);
-                        state.regfile[reg] = UNUSED;
+                        codegen_state.regfile[reg] = UNUSED;
                     }
                 }
                 //struct AST_NODE_STRUCT child = ast_node_data(node.as.)
@@ -156,19 +156,19 @@ static int16_t emit_expression_node(ast_node_t node_h) {
                     r1 = emit_expression_node(node.as.expr.binary.right);
                     int8_t val = left.as.expr.literal.value;
                     emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r1, .arg2 = r1, .arg3 = val}, &program_block);
-                    state.regfile[r1] = USED;
+                    codegen_state.regfile[r1] = USED;
                 }
                 else if (right.type == A_INTEGER_LITERAL && right.as.expr.literal.value <= 15) {
                     r1 = emit_expression_node(node.as.expr.binary.left);
                     int8_t val = right.as.expr.literal.value;
                     emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r1, .arg2 = r1, .arg3 = val}, &program_block);
-                    state.regfile[r1] = USED;
+                    codegen_state.regfile[r1] = USED;
                 }
                 else {
                     r1 = emit_expression_node(node.as.expr.binary.left);
-                    state.regfile[r1] = USED;
+                    codegen_state.regfile[r1] = USED;
                     int8_t r2 = emit_expression_node(node.as.expr.binary.right);
-                    state.regfile[r2] = UNUSED;
+                    codegen_state.regfile[r2] = UNUSED;
                     emit_inst((lc3_instruction_t) {.opcode = ADDreg, .arg1 = r1, .arg2 = r1, .arg3 = r2}, &program_block);
                 }
             return r1;
@@ -182,19 +182,33 @@ static int16_t emit_expression_node(ast_node_t node_h) {
                     int32_t val = -1 * right.as.expr.literal.value;
                     emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r1, .arg2 = r1, .arg3 = val}, &program_block);
                     // TOOD: Only if the immediate is small enough
-                    state.regfile[r1] = USED;
+                    codegen_state.regfile[r1] = USED;
                 }
                 else {
                     // Otherwise the val is in a register somehow.
                     r1 = emit_expression_node(node.as.expr.binary.left);
-                    state.regfile[r1] = USED;
+                    codegen_state.regfile[r1] = USED;
                     int32_t r2 = emit_expression_node(node.as.expr.binary.right);
                     emit_inst((lc3_instruction_t) {.opcode = NOT, .arg1 = r2, .arg2 = r2}, &program_block);
                     emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r2, .arg2 = r2, .arg3 = 1}, &program_block);
                     emit_inst((lc3_instruction_t) {.opcode = ADDreg, .arg1 = r1, .arg2 = r1, .arg3 = r2}, &program_block);
-                    state.regfile[r2] = UNUSED;
+                    codegen_state.regfile[r2] = UNUSED;
                 }
             return r1;
+            }
+            case OP_MUL: {
+                link_multiply();
+                int32_t r1 = emit_expression_node(node.as.expr.binary.left);
+                int32_t r2 = emit_expression_node(node.as.expr.binary.right);
+                emit_inst((lc3_instruction_t) {.opcode = ST, .arg1 = r1, .label = "MULTIPLY_OP1"}, &program_block);
+                emit_inst((lc3_instruction_t) {.opcode = ST, .arg1 = r2, .label = "MULTIPLY_OP2"}, &program_block);
+                emit_inst((lc3_instruction_t) {.opcode = JSR, .label = "MULTIPLY"}, &program_block);
+                emit_inst((lc3_instruction_t) {.opcode = LD, .arg1 = r1, .label = "MULTIPLY_OUTPUT"}, &program_block);
+
+                codegen_state.regfile[r2] = UNUSED;
+
+                return r1;
+                
             }
             // Conditional Operators::
             case OP_EQUALS: 
@@ -307,7 +321,7 @@ static int16_t emit_expression_node(ast_node_t node_h) {
         if (val != 0) {
             emit_inst((lc3_instruction_t) {.opcode = ADDimm, .arg1 = r1, .arg2 = r1, .arg3 = val}, &program_block);
         }
-        state.regfile[r1] = USED;
+        codegen_state.regfile[r1] = USED;
         return r1;
     }
     else if (node.type == A_SYMBOL_REF) {
@@ -345,10 +359,10 @@ void emit_ast_node(ast_node_t node_h) {
 
     struct AST_NODE_STRUCT node = ast_node_data(node_h);
 
-    state.regfile[0] = UNUSED;
-    state.regfile[1] = UNUSED;
-    state.regfile[2] = UNUSED;
-    state.regfile[3] = UNUSED;
+    codegen_state.regfile[0] = UNUSED;
+    codegen_state.regfile[1] = UNUSED;
+    codegen_state.regfile[2] = UNUSED;
+    codegen_state.regfile[3] = UNUSED;
 
     switch (node.type) {
         case A_PROGRAM: {
@@ -454,34 +468,34 @@ void emit_ast_node(ast_node_t node_h) {
             emit_inst_comment((lc3_instruction_t) {.opcode = ANDreg, .arg1 = r_condition, .arg2 = r_condition, .arg3 = r_condition}, \
                         "load condition into NZP", &program_block);
 
-            char* if_statement_end  = format("%s.if.%d.end", current_function_name, if_counter);
-            char* else_statement_name  = format("%s.if.%d", current_function_name, if_counter);
+            char* if_codegen_statement_end  = format("%s.if.%d.end", current_function_name, if_counter);
+            char* else_codegen_statement_name  = format("%s.if.%d", current_function_name, if_counter);
 
             // Else Statement:
             if (node.as.stmt._if.else_stmt != -1) {
-                emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = else_statement_name}, \
-                        "if false, jump to else statement", &program_block);
+                emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = else_codegen_statement_name}, \
+                        "if false, jump to else codegen_statement", &program_block);
 
                 emit_newline(&program_block);
                 emit_ast_node(node.as.stmt._if.if_stmt);
 
-                emit_inst((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = if_statement_end}, &program_block);
+                emit_inst((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = if_codegen_statement_end}, &program_block);
                 
-                emit_label(else_statement_name, &program_block);
+                emit_label(else_codegen_statement_name, &program_block);
 
                 emit_newline(&program_block);
                 emit_ast_node(node.as.stmt._if.else_stmt);
 
-                emit_label(if_statement_end, &program_block);
+                emit_label(if_codegen_statement_end, &program_block);
 
             } // No Else Statement:
             else {
-                emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = if_statement_end}, \
-                        "if false, jump over statement", &program_block);
+                emit_inst_comment((lc3_instruction_t) {.opcode = BR, .arg1 = 1, .arg2 = 1, .arg3 = 0, .label = if_codegen_statement_end}, \
+                        "if false, jump over codegen_statement", &program_block);
                 emit_newline(&program_block);
                 emit_ast_node(node.as.stmt._if.if_stmt);
                 
-                emit_label(if_statement_end, &program_block);
+                emit_label(if_codegen_statement_end, &program_block);
             }
             if_counter++;
             
@@ -600,7 +614,7 @@ void emit_ast_node(ast_node_t node_h) {
                     emit_inst_comment((lc3_instruction_t) {.opcode = STR, .arg1 = reg, .arg2 = 5, .arg3 = -1 * symbol.offset}, \
                             format("Initialize \"%s\"", symbol.identifier), &program_block);
 
-                    state.regfile[reg] = UNUSED;
+                    codegen_state.regfile[reg] = UNUSED;
                 }
                 // newline?
                 return;
