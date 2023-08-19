@@ -31,8 +31,8 @@ endif()
 
 # Specify compiler and linker.
 
-set(CMAKE_C_COMPILER "/usr/bin/clang")
-set(CMAKE_LINKER "/usr/bin/clang")
+#set(CMAKE_C_COMPILER "/usr/bin/clang")
+#set(CMAKE_LINKER "/usr/bin/clang")
 
 # Define project.   
 project(${name} VERSION ${version})
