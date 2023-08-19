@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #include "util.h"
 #include "memory/bump_allocator.h"
