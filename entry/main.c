@@ -7,8 +7,8 @@
 #include "frontend/analysis.h"
 #include "frontend/error.h"
 
-#include "codegen/codegen.h"
-#include "codegen/asmprinter.h"
+//#include "codegen/codegen.h"
+//#include "codegen/asmprinter.h"
 
 const char* argp_program_version = "1.0";
 const char* argp_program_bug_address = "<xrouth2@illinois.edu>";
@@ -34,7 +34,7 @@ struct arguments {
     char* output_path;
 };
 
-extern asm_block_t program_block;
+//extern asm_block_t program_block;
 extern parser_error_handler error_handler;
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -95,19 +95,20 @@ int main(int argc, char **argv) {
 
     //if (arguments.verbose) printf("Done Building AST\n");
 
-    ast_node_t root = get_root();    
+    ast_node_h root = get_root();    
 
     if (arguments.verbose) print_ast(root);
-    analysis(root);
+    analyze_ast_node(root);
     
     print_errors();
     //if (arguments.verbose) printf("Beginning Code gen:\n");
     if (error_handler.num_errors != 0) {
         return 1;
     }
+    init_asmprinter();
     emit_ast(root);
 
-    write_to_file(arguments.output_path, &program_block);
+    write_to_file(arguments.output_path);
     
     return 0;
 }

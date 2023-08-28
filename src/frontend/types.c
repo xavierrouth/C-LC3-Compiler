@@ -4,9 +4,10 @@
 #include <stdbool.h>
 
 #include "types.h"
+#include "util/util.h"
 
 static char decl_buffer[128];
-static uint16_t buffer_idx = 0;
+static u8 buffer_idx = 0;
 
 char* print_declarator(declarator_t a, bool prev_fnc_or_array) {
     

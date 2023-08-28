@@ -8,15 +8,12 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define MAX_NUM_AST_NODES 100
-
-extern char id_buffer[];
-
 // Give other files access to this.
 static struct AST_NODE_STRUCT ast_instances[MAX_NUM_AST_NODES];
+
 bool ast_instance_live[MAX_NUM_AST_NODES];
 
-struct AST_NODE_STRUCT ast_node_data(ast_node_t node) {
+struct AST_NODE_STRUCT ast_node_data(ast_node_h node) {
     // Returns the underlying data
     if (ast_instance_live[node] == false) {
         printf("Accessing dead ast node\n");
@@ -29,11 +26,13 @@ struct AST_NODE_STRUCT ast_node_data(ast_node_t node) {
     return ast_instances[node];
 }
 
-ast_node_t ast_node_init(ast_node_enum type) {
+ast_node_h ast_node_init(ast_node_enum type) {
     // TODO: Optimize this:
-    static uint32_t ast_instance_last = 0;
+    static ast_node_h ast_instance_last = 0;
 
-    for (uint32_t j = 0, i = ast_instance_last; i < MAX_NUM_AST_NODES; j++, i = j % MAX_NUM_AST_NODES) {
+    ast_node_h i;
+
+    for (int j = 0, i = ast_instance_last; i < MAX_NUM_AST_NODES; j++, i = j % MAX_NUM_AST_NODES) {
         if (!ast_instance_live[i]) {
             ast_instance_live[i] = true;
             ast_instances[i].type = type;
@@ -46,15 +45,15 @@ ast_node_t ast_node_init(ast_node_enum type) {
 }
 
 // TOOD: AST Node initializers
-ast_node_t ast_int_literal_init(uint32_t value) {
-    ast_node_t node = ast_node_init(A_INTEGER_LITERAL);
+ast_node_h ast_int_literal_init(u32 value) {
+    ast_node_h node = ast_node_init(A_INTEGER_LITERAL);
     ast_instances[node].as.expr.literal.value = value;
     return node;
 }
 
 // Initialize a function call known arguments.
-ast_node_t ast_expr_call_init(ast_node_t symbol_ref, ast_node_vector arguments) {
-    ast_node_t node = ast_node_init(A_FUNCTION_CALL);
+ast_node_h ast_expr_call_init(ast_node_h symbol_ref, ast_node_vector arguments) {
+    ast_node_h node = ast_node_init(A_FUNCTION_CALL);
     //if (node == -1)
         // TODO: Error handling.
     ast_instances[node].as.expr.call.symbol_ref = symbol_ref;
@@ -62,8 +61,8 @@ ast_node_t ast_expr_call_init(ast_node_t symbol_ref, ast_node_vector arguments) 
     return node;
 }
 
-ast_node_t ast_expr_symbol_init(token_t token) {
-    ast_node_t node = ast_node_init(A_SYMBOL_REF);
+ast_node_h ast_expr_symbol_init(token_t token) {
+    ast_node_h node = ast_node_init(A_SYMBOL_REF);
     ast_instances[node].as.expr.symbol.token = token;
     //ast_instances[node].as.expr.symbol.scope = scope;
     // Why does a symbol reference have a type??
@@ -71,68 +70,68 @@ ast_node_t ast_expr_symbol_init(token_t token) {
     return node;
 }
 
-ast_node_t ast_assign_expr_init(ast_node_t left, ast_node_t right) {
-    ast_node_t node = ast_node_init(A_ASSIGN_EXPR);
+ast_node_h ast_assign_expr_init(ast_node_h left, ast_node_h right) {
+    ast_node_h node = ast_node_init(A_ASSIGN_EXPR);
     ast_instances[node].as.expr.assign.left = left;
     ast_instances[node].as.expr.assign.right = right;
     return node;
 }
 
-ast_node_t ast_unary_op_init(ast_op_enum type, ast_node_t child, bool order) {
-    ast_node_t node = ast_node_init(A_UNARY_EXPR);
+ast_node_h ast_unary_op_init(ast_op_enum type, ast_node_h child, bool order) {
+    ast_node_h node = ast_node_init(A_UNARY_EXPR);
     ast_instances[node].as.expr.unary.type = type;
     ast_instances[node].as.expr.unary.child = child;
     ast_instances[node].as.expr.unary.order = order;
     return node;
 }
 
-ast_node_t ast_binary_op_init(ast_op_enum type, ast_node_t left, ast_node_t right) {
-    ast_node_t node = ast_node_init(A_BINARY_EXPR);
+ast_node_h ast_binary_op_init(ast_op_enum type, ast_node_h left, ast_node_h right) {
+    ast_node_h node = ast_node_init(A_BINARY_EXPR);
     ast_instances[node].as.expr.binary.type = type;
     ast_instances[node].as.expr.binary.left = left;
     ast_instances[node].as.expr.binary.right = right;
     return node;
 }
 
-ast_node_t ast_ternary_op_init(ast_op_enum type, ast_node_t left, ast_node_t right) {
-    ast_node_t node = ast_node_init(A_TERNARY_EXPR);
+ast_node_h ast_ternary_op_init(ast_op_enum type, ast_node_h left, ast_node_h right) {
+    ast_node_h node = ast_node_init(A_TERNARY_EXPR);
     ast_instances[node].as.expr.binary.type = type;
     ast_instances[node].as.expr.binary.left = left;
     ast_instances[node].as.expr.binary.right = right;
     return node;
 }
 
-ast_node_t ast_compound_stmt_init(ast_node_vector statements, bool scope_flag) {
-    ast_node_t node = ast_node_init(A_COMPOUND_STMT);
+ast_node_h ast_compound_stmt_init(ast_node_vector statements, bool scope_flag) {
+    ast_node_h node = ast_node_init(A_COMPOUND_STMT);
     ast_instances[node].as.stmt.compound.statements = statements;
     ast_instances[node].as.stmt.compound.scope_flag = scope_flag;
     return node;
 }
 
-ast_node_t ast_while_stmt_init(ast_node_t condition, ast_node_t body) {
-    ast_node_t node = ast_node_init(A_WHILE_STMT);
+ast_node_h ast_while_stmt_init(ast_node_h condition, ast_node_h body) {
+    ast_node_h node = ast_node_init(A_WHILE_STMT);
     ast_instances[node].as.stmt._while.condition = condition;
     ast_instances[node].as.stmt._while.body = body;
     return node;
 }
 
-ast_node_t ast_return_stmt_init(ast_node_t expression) {
-    ast_node_t node = ast_node_init(A_RETURN_STMT);
+ast_node_h ast_return_stmt_init(ast_node_h expression) {
+    ast_node_h node = ast_node_init(A_RETURN_STMT);
     ast_instances[node].as.stmt._return.expression = expression;
     return node;
 }
 
 // TODO: For loop, if statement, decl_statement
-ast_node_t ast_if_stmt_init(ast_node_t condition, ast_node_t if_stmt, ast_node_t else_stmt) {
-    ast_node_t node = ast_node_init(A_IF_STMT);
+ast_node_h ast_if_stmt_init(ast_node_h condition, ast_node_h if_stmt, ast_node_h else_stmt) {
+    ast_node_h node = ast_node_init(A_IF_STMT);
     ast_instances[node].as.stmt._if.condition = condition;
     ast_instances[node].as.stmt._if.if_stmt = if_stmt;
     ast_instances[node].as.stmt._if.else_stmt = else_stmt;
     return node;
 }
 
-ast_node_t ast_for_stmt_init(ast_node_t intializer, ast_node_t condition, ast_node_t update, ast_node_t body) {
-    ast_node_t node = ast_node_init(A_FOR_STMT);
+ast_node_h ast_for_stmt_init(ast_node_h intializer, ast_node_h condition, ast_node_h update, ast_node_h body) {
+    ast_node_h node = ast_node_init(A_FOR_STMT);
     ast_instances[node].as.stmt._for.initilization = intializer;
     ast_instances[node].as.stmt._for.condition = condition;
     ast_instances[node].as.stmt._for.update = update;
@@ -140,25 +139,24 @@ ast_node_t ast_for_stmt_init(ast_node_t intializer, ast_node_t condition, ast_no
     return node;
 }
 
-
 // -1 for no initializer
-ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, token_t token) {
-    ast_node_t node = ast_node_init(A_VAR_DECL);
+ast_node_h ast_var_decl_init(ast_node_h initializer, type_info_t type_info, token_t token) {
+    ast_node_h node = ast_node_init(A_VAR_DECL);
     ast_instances[node].as.var_decl.token = token;
     ast_instances[node].as.var_decl.initializer = initializer;
     ast_instances[node].as.var_decl.type_info = type_info;
     return node;
 }
 
-ast_node_t ast_param_decl_init(type_info_t type_info, token_t token) {
-    ast_node_t node = ast_node_init(A_PARAM_DECL);
+ast_node_h ast_param_decl_init(type_info_t type_info, token_t token) {
+    ast_node_h node = ast_node_init(A_PARAM_DECL);
     ast_instances[node].as.param_decl.token = token;
     ast_instances[node].as.param_decl.type_info = type_info;
     return node;
 }
 
-ast_node_t ast_func_decl_init(ast_node_t body, ast_node_vector parameters, type_info_t type_info, token_t token) {
-    ast_node_t node = ast_node_init(A_FUNCTION_DECL);
+ast_node_h ast_func_decl_init(ast_node_h body, ast_node_vector parameters, type_info_t type_info, token_t token) {
+    ast_node_h node = ast_node_init(A_FUNCTION_DECL);
     ast_instances[node].as.func_decl.token = token;
     ast_instances[node].as.func_decl.body = body;
     ast_instances[node].as.func_decl.type_info = type_info;
@@ -166,14 +164,14 @@ ast_node_t ast_func_decl_init(ast_node_t body, ast_node_vector parameters, type_
     return node;
 }
 
-ast_node_t ast_program_init(ast_node_vector body) {
-    ast_node_t node = ast_node_init(A_PROGRAM);
+ast_node_h ast_program_init(ast_node_vector body) {
+    ast_node_h node = ast_node_init(A_PROGRAM);
     ast_instances[node].as.program.body = body;
     return node;
 }
 
-ast_node_t ast_inline_asm_init(token_t token) {
-    ast_node_t node = ast_node_init(A_INLINE_ASM);
+ast_node_h ast_inline_asm_init(token_t token) {
+    ast_node_h node = ast_node_init(A_INLINE_ASM);
     ast_instances[node].as.stmt.inline_asm.token = token;
     return node;
 }
@@ -199,6 +197,7 @@ static const char* ast_type_to_str(ast_node_enum type) {
         case A_IF_STMT: return "A_IF_STMT";
         case A_FOR_STMT: return "A_FOR_STMT";
         case A_WHILE_STMT: return "A_WHILE_STMT";
+        case A_UNKNOWN: return "A_UNKNOWN";
     }
     return "ast to string unimlpemented";
 }
@@ -233,31 +232,31 @@ static const char* ast_op_to_str(ast_op_enum type) {
 }
 
 // Visitor pattern:
-static ast_node_visitor visitor_free_init() {
-    ast_node_visitor visitor;
+static ast_visitor_t visitor_free_init() {
+    ast_visitor_t visitor;
     visitor.visitor_type = FREE_AST;
     visitor.traversal_type = POSTORDER;
     return visitor;
 }
 
 // Only one visitor at a time
-static ast_node_visitor visitor_print_init() {
-    ast_node_visitor visitor;
+static ast_visitor_t visitor_print_init() {
+    ast_visitor_t visitor;
     visitor.visitor_type = PRINT_AST;
     visitor.traversal_type = PREORDER;
     visitor.as.print_ast.indentation = -1;
     return visitor;
 }
 
-static ast_node_visitor visitor_check_init() {
-    ast_node_visitor visitor;
+static ast_visitor_t visitor_check_init() {
+    ast_visitor_t visitor;
     visitor.visitor_type = CHECK_AST;
     visitor.traversal_type = PREORDER;
     return visitor;
 }
 
-static ast_node_visitor visitor_analysis_init() {
-    ast_node_visitor visitor;
+static ast_visitor_t visitor_analysis_init() {
+    ast_visitor_t visitor;
     visitor.visitor_type = ANALYSIS;
     visitor.traversal_type = PREORDER;
     return visitor;
@@ -265,7 +264,7 @@ static ast_node_visitor visitor_analysis_init() {
 
 // print_ast_node 
 
-static void visitor_call(ast_node_t node, ast_node_visitor* visitor) {
+static void visitor_call(ast_node_h node, ast_visitor_t* visitor) {
     switch (visitor->visitor_type) {
         case PRINT_AST: {
             print_ast_node(node, visitor->as.print_ast.indentation);
@@ -286,7 +285,7 @@ static void visitor_call(ast_node_t node, ast_node_visitor* visitor) {
     }
 }
 
-static void visitor_begin(ast_node_t node, ast_node_visitor* visitor) {
+static void visitor_begin(ast_node_h node, ast_visitor_t* visitor) {
     switch (visitor->visitor_type) {
         case PRINT_AST: {
             visitor->as.print_ast.indentation++;
@@ -296,7 +295,7 @@ static void visitor_begin(ast_node_t node, ast_node_visitor* visitor) {
     }
 }
 
-static void visitor_end(ast_node_t node, ast_node_visitor* visitor) {
+static void visitor_end(ast_node_h node, ast_visitor_t* visitor) {
     // Decrement indentation?
     switch (visitor->visitor_type) {
         case PRINT_AST: {
@@ -310,7 +309,7 @@ static void visitor_end(ast_node_t node, ast_node_visitor* visitor) {
     }
 }
 
-void ast_traversal(ast_node_t root, ast_node_visitor* visitor) {
+void ast_traversal(ast_node_h root, ast_visitor_t* visitor) {
     if(root == -1)
         return;
 
@@ -399,34 +398,34 @@ void ast_traversal(ast_node_t root, ast_node_visitor* visitor) {
     return;
 }
 
-void free_ast(ast_node_t root) {
-    ast_node_visitor visitor = visitor_free_init();
+void free_ast(ast_node_h root) {
+    ast_visitor_t visitor = visitor_free_init();
     ast_traversal(root, &visitor);
     return;
 }
 
-void print_ast(ast_node_t root) {
-    ast_node_visitor visitor = visitor_print_init();
+void print_ast(ast_node_h root) {
+    ast_visitor_t visitor = visitor_print_init();
     ast_traversal(root, &visitor);
     return;
 }
 
-void check_ast(ast_node_t root, ast_node_enum* results) {
-    ast_node_visitor visitor = visitor_check_init();
+void check_ast(ast_node_h root, ast_node_enum* results) {
+    ast_visitor_t visitor = visitor_check_init();
     visitor.as.check_ast.results = results;
     visitor.as.check_ast.index = 0;
     ast_traversal(root, &visitor);
     return;
 }
 
-void analysis(ast_node_t root) {
-    ast_node_visitor visitor = visitor_analysis_init();
+void analyze_ast(ast_node_h root) {
+    ast_visitor_t visitor = visitor_analysis_init();
     ast_traversal(root, &visitor);
     return;
 }
 
 // TODO: Just grab the data so you don't have to write ast_instances[node] out lol.
-void print_ast_node(ast_node_t node, uint32_t indentation) {
+void print_ast_node(ast_node_h node, u32 indentation) {
     switch (ast_instances[node].type) {
         case A_PROGRAM: {
             snprintf(print_buffer, 128, 
@@ -561,7 +560,7 @@ void print_ast_node(ast_node_t node, uint32_t indentation) {
     }
 }
 
-void free_ast_node(ast_node_t node) {
+void free_ast_node(ast_node_h node) {
     
     switch(ast_instances[node].type) {
         case A_PROGRAM: {

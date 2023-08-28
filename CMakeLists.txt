@@ -41,7 +41,7 @@ project(${name} VERSION ${version})
 set(CMAKE_BUILD_TYPE Debug)
 
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic -Wfatal-errors -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wunused-but-set-variable")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic -Wfatal-errors -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wunused-but-set-variable -Wno-gnu-zero-variadic-macro-arguments")
 
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -O0 -gdwarf-4")
 

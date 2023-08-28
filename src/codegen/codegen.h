@@ -13,15 +13,17 @@ typedef struct {
 typedef struct CODEGEN_STATE_STRUCT {
     bool regfile[8];
 
-    uint16_t global_data_addr;
-    uint16_t user_stack_addr;
+    u16 global_data_addr;
+    u16 user_stack_addr;
+    char* current_function_name;
     
 } codegen_state_t;
 
+void init_codegen();
 
-void emit_ast(ast_node_t root);
+void emit_ast(ast_node_h root);
 
-void emit_ast_node(ast_node_t root);
+void emit_ast_node(ast_node_h root);
 
 
 

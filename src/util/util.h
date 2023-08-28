@@ -40,5 +40,21 @@ int align_up(int n, int align);
 #define LEN(a) (sizeof(a) / sizeof(*(a)))
 
 
+// fixed width numeric types
+#include <stdint.h>
+#include <inttypes.h>
 
-#endif 
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef int8_t i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
+
+typedef float f32;
+typedef double f64;
+
+#endif

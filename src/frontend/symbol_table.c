@@ -6,14 +6,12 @@
 #include "token.h"
 #include "error.h"
 
-symbol_table_t symbol_table;
-
 // Parent pointers:
-symbol_table_entry_t symbol_table_search(token_t identifier_token, int32_t scope) {
+symbol_table_entry_t symbol_table_search(symbol_table_t* symbol_table, token_t identifier_token, i32 scope) {
     char* identifier = identifier_token.contents;
-    for (int i = 0; i < symbol_table.idx; i++) {
+    for (int i = 0; i < symbol_table->idx; i++) {
         // Match characterisitcs from easiest to hardest
-        symbol_table_entry_t entry = symbol_table.data[i];
+        symbol_table_entry_t entry = symbol_table->data[i];
         if (scope != entry.scope)
             continue;
 
@@ -24,7 +22,7 @@ symbol_table_entry_t symbol_table_search(token_t identifier_token, int32_t scope
     // Recurse up, return the first match.
     if (scope != 0) {
         // Parent pointer.
-        return symbol_table_search(identifier_token, symbol_table.parent_scope[scope]);
+        return symbol_table_search(symbol_table, identifier_token, symbol_table->parent_scope[scope]);
     } 
     symbol_table_entry_t invalid = {0};
 
@@ -37,7 +35,7 @@ symbol_table_entry_t symbol_table_search(token_t identifier_token, int32_t scope
     return invalid;
 }
 
-void symbol_table_add(token_t identifier_token, int32_t scope, type_info_t return_type, int32_t type, int32_t size, int32_t offset) {
+void symbol_table_add(symbol_table_t* symbol_table, token_t identifier_token, i32 scope, type_info_t return_type, i32 type, i32 size, i32 offset) {
     char* identifier = identifier_token.contents;
     
     symbol_table_entry_t new_entry = {
@@ -50,9 +48,9 @@ void symbol_table_add(token_t identifier_token, int32_t scope, type_info_t retur
     };
 
     // Just search the current scope.
-    for (int i = 0; i < symbol_table.idx; i++) {
+    for (int i = 0; i < symbol_table->idx; i++) {
         // Match characterisitcs from easiest to hardest
-        symbol_table_entry_t search_entry = symbol_table.data[i];
+        symbol_table_entry_t search_entry = symbol_table->data[i];
         if (new_entry.scope != search_entry.scope)
             continue;
 
@@ -69,6 +67,6 @@ void symbol_table_add(token_t identifier_token, int32_t scope, type_info_t retur
         }
     }
     //symbol_table_live[idx] = true;
-    symbol_table.data[symbol_table.idx++] = new_entry;
+    symbol_table->data[symbol_table->idx++] = new_entry;
     return;
 }

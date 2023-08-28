@@ -296,19 +296,19 @@ static ast_op_enum get_op(const token_enum type) {
  * Parser Body:
  * =================================================== */
 
-static ast_node_t parse_declaration();
+static ast_node_h parse_declaration();
 
-static ast_node_t parse_expression(uint16_t min_binding_power);
+static ast_node_h parse_expression(uint16_t min_binding_power);
 
 static declarator_t parse_declarator(type_info_t* type_info, bool check_pointers);
 
-static ast_node_t parse_var_declaration(token_t id_token, type_info_t type_info);
+static ast_node_h parse_var_declaration(token_t id_token, type_info_t type_info);
 
 // Eats the braces:
-static ast_node_t parse_compound_statement();
+static ast_node_h parse_compound_statement();
 
 /** If the expression is 'missing' i.e. == -1, then report an error and return true, otherwise return false*/
-static bool check_missing_expression(ast_node_t expr) {
+static bool check_missing_expression(ast_node_h expr) {
     if (expr == -1) {
         parser_error_t error = {
             .invalid_token = previous_token(),
@@ -436,13 +436,13 @@ static type_info_t parse_declaration_specifiers() {
     return type_info;
 }
 
-static ast_node_t parse_int_literal() {
+static ast_node_h parse_int_literal() {
     token_t t = eat_token(T_INTLITERAL);
-    ast_node_t node = ast_int_literal_init(atoi(t.contents));
+    ast_node_h node = ast_int_literal_init(atoi(t.contents));
     return node;
 }
 
-static ast_node_t parse_function_call(ast_node_t symbol_ref) {
+static ast_node_h parse_function_call(ast_node_h symbol_ref) {
 
     eat_token(T_LPAREN);
     ast_node_vector arguments = ast_node_vector_init(4);
@@ -450,7 +450,7 @@ static ast_node_t parse_function_call(ast_node_t symbol_ref) {
     if (!expect_token(T_RPAREN)) {
         while (true)  {
             // TODO: Disable parsing comma operators in this. (pass in extra arg to parse_expression)
-            ast_node_t arg = parse_expression(0);
+            ast_node_h arg = parse_expression(0);
             ast_node_vector_push(&(arguments), arg);
             if (!expect_token(T_COMMA)) {
                 // Error Here:
@@ -463,25 +463,25 @@ static ast_node_t parse_function_call(ast_node_t symbol_ref) {
         }
     }
     eat_token(T_RPAREN);
-    ast_node_t node = ast_expr_call_init(symbol_ref, arguments);
+    ast_node_h node = ast_expr_call_init(symbol_ref, arguments);
 
     return node;
 }
 
 // function call can be turned into an operator, and symbol ref should be turend into its own node.
-static ast_node_t parse_symbol_ref() {
+static ast_node_h parse_symbol_ref() {
     token_t id = eat_token(T_IDENTIFIER);
     // Scope::
-    ast_node_t symbol = ast_expr_symbol_init(id);
+    ast_node_h symbol = ast_expr_symbol_init(id);
 
     return symbol;
 }
 
 // Pratt Parsing: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 // Don't eat semicolons
-static ast_node_t parse_expression(uint16_t min_binding_power) {
-    ast_node_t left = -1;
-    ast_node_t right = -1;
+static ast_node_h parse_expression(uint16_t min_binding_power) {
+    ast_node_h left = -1;
+    ast_node_h right = -1;
 
     token_t op_token = peek_token();
     ast_op_enum op_type = get_op(op_token.kind);
@@ -516,7 +516,7 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
         eat_token(op_token.kind);
         uint16_t op_power = prefix_binding_power[op_type];
 
-        ast_node_t child = parse_expression(op_power);
+        ast_node_h child = parse_expression(op_power);
         if (check_missing_expression(child))
             return -1;
 
@@ -571,7 +571,7 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
                 left = ast_unary_op_init(op_type, left, POSTFIX);
             }
             // TODO: Test for '['
-            //ast_node_t child = parse_expression(0);
+            //ast_node_h child = parse_expression(0);
             
             continue;
         }
@@ -606,17 +606,17 @@ static ast_node_t parse_expression(uint16_t min_binding_power) {
     return left;
 }
 
-static ast_node_t parse_return_statement() {
+static ast_node_h parse_return_statement() {
     // Error checking:
     eat_token(T_RETURN);
-    ast_node_t expression = parse_expression(0);
-    ast_node_t node = ast_return_stmt_init(expression);
+    ast_node_h expression = parse_expression(0);
+    ast_node_h node = ast_return_stmt_init(expression);
     eat_token(T_SEMICOLON);
     return node;
 }
 
 // Eats semicolon
-static ast_node_t parse_for_init_clause() {
+static ast_node_h parse_for_init_clause() {
     type_info_t type_info = parse_declaration_specifiers(); 
     // TODO: Make sure these are only auto, register, and a type.
     if (type_info.specifier_info.is_int || type_info.specifier_info.is_char) {
@@ -626,48 +626,48 @@ static ast_node_t parse_for_init_clause() {
     }
     
     // Go into pratt parsing:
-    ast_node_t expr_stmt = parse_expression(0);
+    ast_node_h expr_stmt = parse_expression(0);
     eat_token(T_SEMICOLON);
     return expr_stmt;
 }
 
-static ast_node_t parse_for_statement() {
+static ast_node_h parse_for_statement() {
     eat_token(T_FOR);
     eat_token(T_LPAREN);
     // TODO: Only certain declaration specifiers are allowed.
-    ast_node_t initializer = parse_for_init_clause(); // May be a expression or a declaration
-    ast_node_t condition = parse_expression(0);
+    ast_node_h initializer = parse_for_init_clause(); // May be a expression or a declaration
+    ast_node_h condition = parse_expression(0);
     if (condition == -1) {
         condition = ast_int_literal_init(1);
     }
     eat_token(T_SEMICOLON);
-    ast_node_t update = parse_expression(0);
+    ast_node_h update = parse_expression(0);
     eat_token(T_RPAREN);
-    ast_node_t body = parse_compound_statement();
-    ast_node_t node = ast_for_stmt_init(initializer, condition, update, body);
+    ast_node_h body = parse_compound_statement();
+    ast_node_h node = ast_for_stmt_init(initializer, condition, update, body);
     return node;
 }
 
-static ast_node_t parse_while_statement() {
+static ast_node_h parse_while_statement() {
     eat_token(T_WHILE);
     eat_token(T_LPAREN);
-    ast_node_t condition = parse_expression(0);
+    ast_node_h condition = parse_expression(0);
     if (check_missing_expression(condition)) {
         skip_statement();
         return -1;
     }
     eat_token(T_RPAREN);
-    ast_node_t body = parse_compound_statement();
+    ast_node_h body = parse_compound_statement();
     return ast_while_stmt_init(condition, body);
 }
 
-static ast_node_t parse_if_statement() {
+static ast_node_h parse_if_statement() {
     // TODO: Only support
     eat_token(T_IF);
     eat_token(T_LPAREN);
-    ast_node_t condition = parse_expression(0);
-    ast_node_t if_stmt = -1;
-    ast_node_t else_stmt = -1;
+    ast_node_h condition = parse_expression(0);
+    ast_node_h if_stmt = -1;
+    ast_node_h else_stmt = -1;
     eat_token(T_RPAREN);
 
     if (expect_token(T_LBRACE)) {
@@ -689,22 +689,22 @@ static ast_node_t parse_if_statement() {
             eat_token(T_SEMICOLON);
         }
     }
-    ast_node_t node = ast_if_stmt_init(condition, if_stmt, else_stmt);
+    ast_node_h node = ast_if_stmt_init(condition, if_stmt, else_stmt);
     return node;
 }
 
-static ast_node_t parse_inline_asm() {
+static ast_node_h parse_inline_asm() {
     eat_token(T_ASM);
     eat_token(T_LPAREN);
     token_t t = eat_token(T_STRLITERAL);
     eat_token(T_RPAREN);
-    ast_node_t node = ast_inline_asm_init(t);
+    ast_node_h node = ast_inline_asm_init(t);
     eat_token(T_SEMICOLON);
     return node;
 }
 
 // Parse a statement that is in a function.
-static ast_node_t parse_statement() {
+static ast_node_h parse_statement() {
     // TODO: Error checks:
     if (error_handler.abort) {
         return -1;
@@ -741,38 +741,38 @@ static ast_node_t parse_statement() {
     
     //else go into pratt parsing():
     
-    ast_node_t expr_stmt = parse_expression(0);
+    ast_node_h expr_stmt = parse_expression(0);
     eat_token(T_SEMICOLON);
     return expr_stmt;
 }
 
-static ast_node_t parse_declaration(type_info_t type_info) {
+static ast_node_h parse_declaration(type_info_t type_info) {
     // TODO: Implement multiple variable initialization.
     if (expect_token(T_ASSIGN)) {
         eat_token(T_ASSIGN);
         // Parse variable initialization definition
-        ast_node_t initializer = parse_expression(0);
+        ast_node_h initializer = parse_expression(0);
         if (check_missing_expression(initializer)) {
             skip_statement(); 
             return -1;
         }
         eat_token(T_SEMICOLON);
-        ast_node_t node = ast_var_decl_init(initializer, type_info, type_info.identifier_token);
+        ast_node_h node = ast_var_decl_init(initializer, type_info, type_info.identifier_token);
         return node;
     }
     else {
         eat_token(T_SEMICOLON); 
-        ast_node_t node = ast_var_decl_init(-1, type_info, type_info.identifier_token);
+        ast_node_h node = ast_var_decl_init(-1, type_info, type_info.identifier_token);
         return node;
     }
 }
 
-static ast_node_t parse_compound_statement() {    
+static ast_node_h parse_compound_statement() {    
     eat_token(T_LBRACE);
     // Parse compound statement; // EATS THE BRACES
     ast_node_vector statements = ast_node_vector_init(16);
     while(true) {
-        ast_node_t stmt = parse_statement();
+        ast_node_h stmt = parse_statement();
         if (error_handler.abort) {
             ast_node_vector_free(statements);
             return -1;
@@ -784,18 +784,18 @@ static ast_node_t parse_compound_statement() {
     }
 
     eat_token(T_RBRACE);
-    ast_node_t node = ast_compound_stmt_init(statements, NEWSCOPE);
+    ast_node_h node = ast_compound_stmt_init(statements, NEWSCOPE);
     return node;
 }
 
 
 
-static ast_node_t parse_function_definition(const type_info_t return_type) {
+static ast_node_h parse_function_definition(const type_info_t return_type) {
     // 
     token_t id_token = return_type.identifier_token;
 
     eat_token(T_LPAREN);
-    ast_node_t node = -1;
+    ast_node_h node = -1;
     // Parse parameters
 
     // TODO: Support Varags
@@ -811,7 +811,7 @@ static ast_node_t parse_function_definition(const type_info_t return_type) {
             return -1;
         }
         param_type.declarator = parse_declarator(&param_type, true);
-        ast_node_t parameter = ast_param_decl_init(param_type, param_type.identifier_token);
+        ast_node_h parameter = ast_param_decl_init(param_type, param_type.identifier_token);
 
         ast_node_vector_push(&parameters, parameter);
         if (!expect_token(T_COMMA))
@@ -831,7 +831,7 @@ static ast_node_t parse_function_definition(const type_info_t return_type) {
     }
     // Function with a body.
     else if (expect_token(T_LBRACE)){
-        ast_node_t body = parse_compound_statement();
+        ast_node_h body = parse_compound_statement();
         node = ast_func_decl_init(body, parameters, return_type, id_token);
         return node;
     }
@@ -840,7 +840,7 @@ static ast_node_t parse_function_definition(const type_info_t return_type) {
 
 }
 
-static ast_node_t parse_toplevel_declaration() {
+static ast_node_h parse_toplevel_declaration() {
     // Parse function declaration or var / normal declaration, who knows what to chosoe! hahahhaha
     if (error_handler.abort) {
         return -1;
@@ -883,21 +883,21 @@ static ast_node_t parse_toplevel_declaration() {
     // If function parse 
 }
 
-static ast_node_t parse_translation_unit() {
+static ast_node_h parse_translation_unit() {
 
     // A bunch of external_declarations
     
     ast_node_vector body = ast_node_vector_init(16);
 
     while(true) {
-        ast_node_t decl = parse_toplevel_declaration();
+        ast_node_h decl = parse_toplevel_declaration();
         if (decl == -1) {
             break;
         }
         ast_node_vector_push(&(body), decl);
     }
 
-    ast_node_t node = ast_program_init(body);
+    ast_node_h node = ast_program_init(body);
 
     return node;
 }
@@ -921,6 +921,6 @@ void init_parser(const char* source, uint32_t source_size) {
     return;
 }
 
-ast_node_t get_root() {
+ast_node_h get_root() {
     return parser.ast_root;
 }

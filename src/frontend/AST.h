@@ -9,9 +9,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// Handle for ast_node_t;
-typedef int32_t ast_node_t; 
-
 #define POSTORDER 1
 #define PREORDER 0
 
@@ -20,6 +17,11 @@ typedef int32_t ast_node_t;
 
 #define NEWSCOPE 1
 #define OLDSCOPE 0
+
+#define MAX_NUM_AST_NODES 255
+#define MAX_SCOPE_RECURSION 8
+
+typedef i16 ast_node_h;
 
 // Both unary and binary operators.
 typedef enum AST_OP_ENUM {
@@ -88,6 +90,7 @@ typedef enum AST_OP_ENUM {
 typedef enum AST_NODE_ENUM {
     A_UNKNOWN,
     A_PROGRAM,
+
     // Statements:
     A_VAR_DECL,
     A_PARAM_DECL,
@@ -97,6 +100,7 @@ typedef enum AST_NODE_ENUM {
     A_RETURN_STMT,
     A_IF_STMT,
     A_INLINE_ASM,
+
     // LOOPS:
     A_WHILE_STMT,
     A_FOR_STMT,
@@ -111,24 +115,24 @@ typedef enum AST_NODE_ENUM {
 } ast_node_enum;
 
 // This is just a vector of handles.
-#define T ast_node_t
+#define T ast_node_h
 #define NAME ast_node
 #include "util/vector.h"
 #undef T
 #undef NAME
 
-struct AST_NODE_STRUCT {
+typedef struct AST_NODE_STRUCT {
     ast_node_enum type;
-    uint32_t size; // Number of children including itself.
+    u32 size; // Number of children including itself.
     token_t token;
     union { 
         // ==== Expressions: ====
         union {
             struct { // For int literal
-                uint32_t value;
+                u32 value;
             } literal;
             struct {
-                ast_node_t symbol_ref;
+                ast_node_h symbol_ref;
                 ast_node_vector arguments; // expressions.
             } call;
             struct { // A reference to an already defined symbol
@@ -136,24 +140,24 @@ struct AST_NODE_STRUCT {
                 token_t token;
             } symbol;
             struct {
-                ast_node_t left; 
-                ast_node_t right;
+                ast_node_h left; 
+                ast_node_h right;
             } assign; // Assign expr vs assign statement.
             struct { // For Operations or assign statements
                 ast_op_enum type; 
-                ast_node_t left;
-                ast_node_t right;
+                ast_node_h left;
+                ast_node_h right;
             } binary;
             struct { // For Operations or assign statements
                 ast_op_enum type;
-                ast_node_t child;
+                ast_node_h child;
                 bool order; // post or pre
             } unary;
             struct { // For Operations or assign statements
                 ast_op_enum type; 
-                ast_node_t first;
-                ast_node_t second;
-                ast_node_t third;
+                ast_node_h first;
+                ast_node_h second;
+                ast_node_h third;
             } ternary;
         } expr;
         // ==== Statements: ====
@@ -164,25 +168,25 @@ struct AST_NODE_STRUCT {
                 bool scope_flag;
             } compound;
             struct {
-                ast_node_t expression;
+                ast_node_h expression;
             } expression;
             struct {
-                ast_node_t expression;
+                ast_node_h expression;
             } _return;
             struct {
-                ast_node_t initilization;
-                ast_node_t condition;
-                ast_node_t update;
-                ast_node_t body;
+                ast_node_h initilization;
+                ast_node_h condition;
+                ast_node_h update;
+                ast_node_h body;
             } _for;
             struct {
-                ast_node_t condition;
-                ast_node_t body;
+                ast_node_h condition;
+                ast_node_h body;
             } _while;
             struct {
-                ast_node_t condition;
-                ast_node_t if_stmt;
-                ast_node_t else_stmt;
+                ast_node_h condition;
+                ast_node_h if_stmt;
+                ast_node_h else_stmt;
             } _if;
             struct {
                 ast_node_vector declarations;
@@ -193,53 +197,52 @@ struct AST_NODE_STRUCT {
         } stmt;
         // ==== Declarations: ====
         struct {
-            ast_node_t initializer;
+            ast_node_h initializer;
             type_info_t type_info;
-            uint32_t scope;
+            u32 scope;
             token_t token;
         } var_decl;
         struct {
             type_info_t type_info;
-            uint32_t scope;
+            u32 scope;
             token_t token;
         } param_decl;
         struct {
-            ast_node_t body; // Compound statement
+            ast_node_h body; // Compound statement
             type_info_t type_info;
             ast_node_vector parameters;
-            uint32_t scope;
+            u32 scope;
             token_t token;
         } func_decl; // Do the parameters need to have their own parm var decl node type?
         struct {
             ast_node_vector body;
-            uint32_t main; // index into symbol table??
+            u32 main; // index into symbol table??
         } program;
     } as;
-};
+} ast_node_t;
 
 // AST initialization:
-ast_node_t ast_node_init(ast_node_enum type);
-ast_node_t ast_int_literal_init(uint32_t value);
-ast_node_t ast_expr_call_init(ast_node_t symbol_ref, ast_node_vector arguments);
-ast_node_t ast_expr_symbol_init(token_t token);
-ast_node_t ast_assign_expr_init(ast_node_t left, ast_node_t right);
-ast_node_t ast_unary_op_init(ast_op_enum type, ast_node_t child, bool order);
-ast_node_t ast_binary_op_init(ast_op_enum type, ast_node_t left, ast_node_t right);
-ast_node_t ast_ternary_op_init(ast_op_enum type, ast_node_t left, ast_node_t right);
-ast_node_t ast_compound_stmt_init(ast_node_vector statements, bool scope_flag);
-ast_node_t ast_while_stmt_init(ast_node_t condition, ast_node_t body);
-ast_node_t ast_for_stmt_init(ast_node_t intializer, ast_node_t condition, ast_node_t update, ast_node_t body);
-ast_node_t ast_return_stmt_init(ast_node_t expression);
-ast_node_t ast_if_stmt_init(ast_node_t condition, ast_node_t if_stmt, ast_node_t else_stmt);
-ast_node_t ast_var_decl_init(ast_node_t initializer, type_info_t type_info, token_t token);
-ast_node_t ast_param_decl_init(type_info_t type_info, token_t token);
-ast_node_t ast_func_decl_init(ast_node_t body, ast_node_vector parameters, type_info_t type_info, token_t token);
-ast_node_t ast_program_init(ast_node_vector body);
-ast_node_t ast_inline_asm_init(token_t token);
-// Takes a token type and returns the corresponding OP type.
-ast_op_enum token_to_op(token_enum type);
+ast_node_h ast_node_init(ast_node_enum type);
+ast_node_h ast_int_literal_init(u32 value);
+ast_node_h ast_expr_call_init(ast_node_h symbol_ref, ast_node_vector arguments);
+ast_node_h ast_expr_symbol_init(token_t token);
+ast_node_h ast_assign_expr_init(ast_node_h left, ast_node_h right);
+ast_node_h ast_unary_op_init(ast_op_enum type, ast_node_h child, bool order);
+ast_node_h ast_binary_op_init(ast_op_enum type, ast_node_h left, ast_node_h right);
+ast_node_h ast_ternary_op_init(ast_op_enum type, ast_node_h left, ast_node_h right);
+ast_node_h ast_compound_stmt_init(ast_node_vector statements, bool scope_flag);
+ast_node_h ast_while_stmt_init(ast_node_h condition, ast_node_h body);
+ast_node_h ast_for_stmt_init(ast_node_h intializer, ast_node_h condition, ast_node_h update, ast_node_h body);
+ast_node_h ast_return_stmt_init(ast_node_h expression);
+ast_node_h ast_if_stmt_init(ast_node_h condition, ast_node_h if_stmt, ast_node_h else_stmt);
+ast_node_h ast_var_decl_init(ast_node_h initializer, type_info_t type_info, token_t token);
+ast_node_h ast_param_decl_init(type_info_t type_info, token_t token);
+ast_node_h ast_func_decl_init(ast_node_h body, ast_node_vector parameters, type_info_t type_info, token_t token);
+ast_node_h ast_program_init(ast_node_vector body);
+ast_node_h ast_inline_asm_init(token_t token);
 
-typedef struct AST_NODE_VISITOR {
+// Takes a token type and returns the corresponding OP type.
+typedef struct AST_VISITOR {
     enum {
         PRINT_AST,
         FREE_AST,
@@ -249,30 +252,29 @@ typedef struct AST_NODE_VISITOR {
     bool traversal_type; // POSTORDER or PREORDER
     union {
         struct {
-            uint32_t indentation;
+            u32 indentation;
         } print_ast;
         struct {
             ast_node_enum* results;
-            uint32_t index;
+            u32 index;
         } check_ast;
         struct {
             int useless;
         } analysis;
     } as;
-} ast_node_visitor;
+} ast_visitor_t;
 
 // Visitor options:
+void print_ast(ast_node_h root);
 
-void print_ast(ast_node_t root);
+void analyze_ast(ast_node_h root);
 
-void analysis(ast_node_t root);
+void check_ast(ast_node_h root, ast_node_enum* results);
 
-void check_ast(ast_node_t root, ast_node_enum* results);
+void print_ast_node(ast_node_h node, u32 indentation);
 
-void print_ast_node(ast_node_t node, uint32_t indentation);
+void free_ast_node(ast_node_h node);
 
-void free_ast_node(ast_node_t node);
-
-struct AST_NODE_STRUCT ast_node_data(ast_node_t node);
+ast_node_t ast_node_data(ast_node_h node);
 
 #endif

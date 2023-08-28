@@ -1,32 +1,14 @@
-#if 0
-#include "uniform_allocator.h"
+#include "linear_pool_allocator.h"
 
-uniform_allocator_t init_uniform_allocator(uint8_t* start, uint8_t* end, size_t ele_size) {
-    assert(start <= end);
-    uniform_allocator_t allocator = {
-        .start = start,
-        .end = end,
-        .ptr = end
-    };
-    return allocator;
-}
+#ifndef LPOOL_ALLOCA_H
+#define LPOOL_ALLOCA_H
 
-void* uniform_allocate(uniform_allocator_t* allocator, size_t align, size_t size) {
-    // Downwards uniforming.
-    
-    // TOOD: assert that align is a power of two
-    
-    // Decrement pointer, and then round down by masking off low bits
-    uint8_t* new_ptr = (uintptr_t)(allocator->ptr - size) & (uintptr_t) ~(align - 1);
+#include "util/util.h"
 
-    if (allocator->start <= new_ptr)
-        return NULL;
+typedef struct {
 
-    allocator->ptr = new_ptr;
-    return (void*)allocator->ptr;
-}
+} lpool_allocator_t;
 
-void uniform_free(uniform_allocator_t* allocator) {
-    allocator->ptr = allocator->end;
-}
+u16 handle_allocate(lpool_allocator_t);
+
 #endif

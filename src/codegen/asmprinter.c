@@ -12,7 +12,7 @@
 #define DIRECTIVE_POSITION 20
 #define INDENT 4
 
-static char buffer[PRINTER_ALLOCATOR_SIZE];
+static u8 buffer[PRINTER_ALLOCATOR_SIZE];
 
 static bump_allocator_t printer_allocator = {
     .start = &buffer[0],
@@ -21,6 +21,11 @@ static bump_allocator_t printer_allocator = {
 };
 
 static asm_printer_state_t printer_state;
+
+void init_asmprinter() {
+    printer_state.root = init_block();
+
+}
 
 // Unclear if this should be part of the printer state.
 static FILE* outfile;
@@ -34,7 +39,7 @@ void close_out_file(void) {
     fclose(outfile);
 }
 
-static const char* format(const char* fmt, ...) {
+static const char* asm_format(const char* fmt, ...) {
     va_list args_const;
     va_start(args_const, fmt);
 
@@ -58,79 +63,79 @@ static const char* format(const char* fmt, ...) {
     return buff;
 }
 
-static const char* format_directive(lc3_directive_t* directive){
+static const char* asm_format_directive(lc3_directive_t* directive){
     switch (directive->type) {
         case FILL:
-            return format(".FILL x%04X", directive->value);
+            return asm_format(".FILL x%04X", directive->value);
         default:
             return "rjhg3ekrjlg";
     }
 }
-static const char* format_inst(lc3_instruction_t* inst) {
+
+static const char* asm_format_inst(lc3_instruction_t* inst) {
     switch (inst->opcode) {
         case NOOP:
-            return format("\n");
+            return asm_format("\n");
         case ADDreg:
-            return format("ADD R%u, R%u, R%d", inst->arg1, inst->arg2, inst->arg3);
+            return asm_format("ADD R%u, R%u, R%d", inst->arg1, inst->arg2, inst->arg3);
         case ADDimm:
-            return format("ADD R%u, R%u, #%d", inst->arg1, inst->arg2, inst->arg3);
+            return asm_format("ADD R%u, R%u, #%d", inst->arg1, inst->arg2, inst->arg3);
         case ANDreg:
-            return format("AND R%u, R%u, R%d", inst->arg1, inst->arg2, inst->arg3);
+            return asm_format("AND R%u, R%u, R%d", inst->arg1, inst->arg2, inst->arg3);
         case ANDimm:
-            return format("AND R%u, R%u, #%d", inst->arg1, inst->arg2, inst->arg3);
+            return asm_format("AND R%u, R%u, #%d", inst->arg1, inst->arg2, inst->arg3);
         case BR: {
             // Uncoditional branch
             if (inst->arg1 && inst->arg2 && inst->arg3) {
-                return format("BR %s", inst->label);
+                return asm_format("BR %s", inst->label);
             }
             if (inst->arg1 && inst->arg2) {
-                return format("BRnz %s", inst->label);
+                return asm_format("BRnz %s", inst->label);
             }
             if (inst->arg1 && inst->arg3) {
-                return format("BRnp %s", inst->label);
+                return asm_format("BRnp %s", inst->label);
             }
             if (inst->arg2 && inst->arg3) {
-                return format("BRzp %s", inst->label);
+                return asm_format("BRzp %s", inst->label);
             }
             if (inst->arg1) {
-                return format("BRn %s", inst->label);
+                return asm_format("BRn %s", inst->label);
             }
             if (inst->arg2) {
-                return format("BRz %s", inst->label);
+                return asm_format("BRz %s", inst->label);
             }
             if (inst->arg3) {
-                return format("BRp %s", inst->label);
+                return asm_format("BRp %s", inst->label);
             }
         }
         case JSR:
-            return format("JSR %s", inst->label);
+            return asm_format("JSR %s", inst->label);
         case JSRR:
             return "";
         case LD:
-            return format("LD R%d, %s", inst->arg1, inst->label);
+            return asm_format("LD R%d, %s", inst->arg1, inst->label);
         case LDI:
             return "";
         case LDR:
-            return format("LDR R%d, R%d, #%d", inst->arg1, inst->arg2, inst->arg3);
+            return asm_format("LDR R%d, R%d, #%d", inst->arg1, inst->arg2, inst->arg3);
         case NOT:
-            return format("NOT R%u, R%u", inst->arg1, inst->arg2);
+            return asm_format("NOT R%u, R%u", inst->arg1, inst->arg2);
         case RET:
             return "RET";
         case RTI:
             return "erwat";
         case ST:
-            return format("ST R%d, %s", inst->arg1, inst->label);
+            return asm_format("ST R%d, %s", inst->arg1, inst->label);
         case STI:
-            return format("STI R%d, %s", inst->arg1, inst->label);
+            return asm_format("STI R%d, %s", inst->arg1, inst->label);
         case STR:
-            return format("STR R%d, R%d, #%d", inst->arg1, inst->arg2, inst->arg3);
+            return asm_format("STR R%d, R%d, #%d", inst->arg1, inst->arg2, inst->arg3);
         case HALT:
             return "HALT";
         default:
             return "203894024";
     }
 }
-
 
 
 static int write(const char* fmt, ...) {
@@ -140,7 +145,6 @@ static int write(const char* fmt, ...) {
     va_end(args);
     return len;
 }
-
 
 static void write_bundle(asm_bundle_t* bundle) {
     // Todo: cleanup.
@@ -169,21 +173,20 @@ static void write_bundle(asm_bundle_t* bundle) {
         linepos += write(bundle->label);
     }
     // Write instruction
-    if (bundle->is_inst){
-        while(linepos < INDENT) {
-            linepos += write("%*s", INDENT-linepos, " ");
+    switch(bundle->type) {
+        case B_INSTRUCTION: {
+            while(linepos < INDENT) {
+                linepos += write("%*s", INDENT-linepos, " ");
+            }
+            linepos += write(asm_format_inst(&(bundle->instruction)));
         }
-        linepos += write(format_inst(&(bundle->instruction)));
-    }
-
-    // Write directive
-    else if (bundle->is_directive){
-        while(linepos < DIRECTIVE_POSITION) {
-            linepos += write("%*s", INDENT-linepos, " ");
+        case B_DIRECTIVE: {
+            while(linepos < DIRECTIVE_POSITION) {
+                linepos += write("%*s", INDENT-linepos, " ");
+            }
+            linepos += write(asm_format_directive(&(bundle->directive)));
         }
-        linepos += write(format_directive(&(bundle->directive)));
     }
-
     // Write comment
     if (bundle->comment != NULL){
         // Inline comment
@@ -205,13 +208,18 @@ static void write_bundle(asm_bundle_t* bundle) {
 static void write_block(asm_block_t* block) {
     if (block->header)
         write("%s", block->header);
-    for (uint16_t i = 0; i < block->instructions_size; i++) {
-        write_bundle(block->instructions[i]);
+
+    asm_bundle_t* instruction = block->instructions_head;
+    while (instruction != NULL) {
+        write_bundle(instruction);
+        instruction = instruction->next;
     }
     write("\n");
     write("; ---- Data Section ----\n");
-    for (uint16_t i = 0; i < block->data_size; i++) {
-        write_bundle(block->data[i]);
+    asm_bundle_t* data = block->instructions_head;
+    while (data != NULL) {
+        write_bundle(data);
+        data = data->next;
     }
     if (block->footer)
         write("%s", block->footer);
@@ -239,13 +247,12 @@ void link_multiply() {
 
 #include "multiply.h"
 
-void write_to_file(char* path, asm_block_t* root) {
+void write_to_file(char* path) {
     set_out_file(path);
     write_program_header();
     
-
     //todo Loop:
-    write_block(root);
+    write_block(printer_state.root);
 
     write_program_footer();
     if (multiplication_dependency) {
@@ -266,8 +273,10 @@ asm_block_t* init_block(void) {
         .footer = "\0",
         .header = "\0",
         .next = NULL,
-        .instructions_size = 0,
-        .data_size = 0
+        .instructions_head = NULL,
+        .instructions_tail = NULL,
+        .data_head = NULL,
+        .data_tail = NULL
     };
     return block;
 }
@@ -278,44 +287,79 @@ void emit_data(char* label, char* directive, asm_block_t* block) {
 }
 
 
-
 void emit_directive(char* directive, asm_block_t* block) {
     block->instructions[block->instructions_size++] = init_instruction(NULL, NULL, directive, NULL);
 }
 */
 
-void emit_newline(asm_block_t* block) {
+void emit_newline(void) {
     asm_bundle_t* bundle = init_bundle();
-    block->instructions[block->instructions_size++] = bundle;
+    if (printer_state.root->instructions_tail == NULL) {
+        printer_state.root->instructions_head = bundle;
+        printer_state.root->instructions_tail = bundle;
+        return;
+    }
+    printer_state.root->instructions_tail->next = bundle;
+    printer_state.root->instructions_tail = bundle;
 }
 
-void emit_comment(char* comment, asm_block_t* block) {
+void emit_comment(char* comment) {
     asm_bundle_t* bundle = init_bundle();
     *bundle = (asm_bundle_t) {.comment = comment};
-    block->instructions[block->instructions_size++] = bundle;
+    if (printer_state.root->instructions_tail == NULL) {
+        printer_state.root->instructions_head = bundle;
+        printer_state.root->instructions_tail = bundle;
+        return;
+    }
+    printer_state.root->instructions_tail->next = bundle;
+    printer_state.root->instructions_tail = bundle;
 }
-void emit_label(char* label, asm_block_t* block) {
+void emit_label(char* label) {
     asm_bundle_t* bundle = init_bundle();
     *bundle = (asm_bundle_t) {.label = label};
-    block->instructions[block->instructions_size++] = bundle;
+    if (printer_state.root->instructions_tail == NULL) {
+        printer_state.root->instructions_head = bundle;
+        printer_state.root->instructions_tail = bundle;
+        return;
+    }
+    printer_state.root->instructions_tail->next = bundle;
+    printer_state.root->instructions_tail = bundle;
 }
 
-void emit_data(char* label, lc3_directive_t directive, asm_block_t* block) {
+void emit_data(char* label, lc3_directive_t directive) {
     asm_bundle_t* bundle = init_bundle();
-    *bundle = (asm_bundle_t) {{.directive = directive}, .label = label, .is_inst = false, .is_directive = true};
-    block->data[block->data_size++] = bundle;
+    *bundle = (asm_bundle_t) {{.directive = directive}, .label = label, .type = B_DIRECTIVE};
+    if (printer_state.root->data_tail == NULL) {
+        printer_state.root->data_head = bundle;
+        printer_state.root->data_tail = bundle;
+        return;
+    }
+    printer_state.root->data_tail->next = bundle;
+    printer_state.root->data_tail = bundle;
 }
 
-void emit_inst(lc3_instruction_t inst, asm_block_t* block) {
+void emit_inst(lc3_instruction_t inst) {
     asm_bundle_t* bundle = init_bundle();
-    *bundle = (asm_bundle_t) {{.instruction = inst}, .is_inst = true, .is_directive = false, };
-    block->instructions[block->instructions_size++] = bundle;
+    *bundle = (asm_bundle_t) {{.instruction = inst}, .type = B_INSTRUCTION};
+    if (printer_state.root->instructions_tail == NULL) {
+        printer_state.root->instructions_head = bundle;
+        printer_state.root->instructions_tail = bundle;
+        return;
+    }
+    printer_state.root->instructions_tail->next = bundle;
+    printer_state.root->instructions_tail = bundle;
 }
 
-void emit_inst_comment(lc3_instruction_t inst, char* comment, asm_block_t* block) {
+void emit_inst_comment(lc3_instruction_t inst, char* comment) {
     asm_bundle_t* bundle = init_bundle();
-    *bundle = (asm_bundle_t) {{.instruction = inst}, .is_inst = true, .is_directive = false, .comment = comment};
-    block->instructions[block->instructions_size++] = bundle;
+    *bundle = (asm_bundle_t) {{.instruction = inst}, .type = B_INSTRUCTION, .comment = comment};
+    if (printer_state.root->instructions_tail == NULL) {
+        printer_state.root->instructions_head = bundle;
+        printer_state.root->instructions_tail = bundle;
+        return;
+    }
+    printer_state.root->instructions_tail->next = bundle;
+    printer_state.root->instructions_tail = bundle;
 }
 
 

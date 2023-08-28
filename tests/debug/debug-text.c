@@ -1,13 +1,6 @@
 int main() {
-    for(int i = 0; i < 3; i = i + 1) {
-        i = i - 1;
+    if (2 > 1) {
+        return 3;
     }
-    return (0);
+    return 6;
 }
-
-
-
-
-
-
-

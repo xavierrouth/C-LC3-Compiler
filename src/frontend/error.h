@@ -5,9 +5,10 @@
 #include <stdbool.h>
 
 #include "token.h"
+#include "util/util.h"
 
 #define MAX_NUM_PARSER_WARNINGS 4
-#define MAX_NUM_PARSER_ERRORS 1 
+#define MAX_NUM_PARSER_ERRORS 2 
 
 typedef struct PARSER_ERROR_STRUCT {
     token_t invalid_token; // The token that was unexpected
@@ -23,26 +24,25 @@ typedef struct PARSER_ERROR_STRUCT {
         ERROR_SYMBOL_UNKNOWN,
         ERROR_GENERAL,
     } type;
-    int16_t offset; // Offset from prev token.
+    i8 offset; // Offset from prev token.
 } parser_error_t;
 
 typedef struct PARSER_ERROR_HANDLER {
-    parser_error_t errors[8];
-    parser_error_t warnings[8];
-    parser_error_t in_construction; // We are trying to find out more information abotu this error!
-    int16_t num_errors;
-    int16_t num_warnings;
+    parser_error_t errors[MAX_NUM_PARSER_WARNINGS];
+    parser_error_t warnings[MAX_NUM_PARSER_WARNINGS];
+    u8 num_errors;
+    u8 num_warnings;
     bool abort;
     bool print_errors;
     bool print_warnings;
     bool skip_statement;
     char* source;
-    uint32_t source_size;
+    u32 source_size;
 } parser_error_handler;
 
 bool report_error(parser_error_t error);
 
-void init_error_handler(const char* source, uint32_t source_size);
+void init_error_handler(const char* source, u32 source_size);
 
 void print_errors();
 void print_analysis_errors();

@@ -20,15 +20,15 @@
 
 typedef struct PARSER_STRUCT {
     token_t putback_stack[8];
-    uint32_t putback_idx;
-    ast_node_t ast_root;
+    u8 putback_idx;
+    ast_node_h ast_root;
 } parser_t;
 
-void init_parser(const char* source, uint32_t source_size);
+void init_parser(const char* source, u32 source_size);
 
 void end_parse();
 void build_ast();
 
-ast_node_t get_root();
+ast_node_h get_root();
 
 #endif

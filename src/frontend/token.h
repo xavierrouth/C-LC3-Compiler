@@ -5,7 +5,128 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "util/util.h"
+
 // Rough groupings, some of the tokens take different meanings depending on the context.
+//#include "util/enum_ppfactory.h"
+
+#define FOR_SIMPLE_TOKENS(DO)\
+    DO(T_ASSIGN, "=")\
+    DO(T_ADD, "+") \
+    DO(T_SUB, "-") \
+    DO(T_MUL, "*") \
+    DO(T_DIV, "/") \
+    DO(T_MOD, "\%") \
+    DO(T_LOGAND, "&&") \
+    DO(T_LOGOR, "||")\
+    DO(T_LOGNOT, "!") \
+    DO(T_INCREMENT, "++") \
+    DO(T_DECREMENT, "--") \
+    DO(T_BITAND,  "&") \
+    DO(T_BITOR,  "|") \
+    DO(T_BITXOR,  "^") \
+    DO(T_BITFLIP,  "~") \
+    DO(T_LEFTSHIFT,  "<<") \
+    DO(T_RIGHTSHIFT,  ">>") \
+    DO(T_LT,  "<") \
+    DO(T_GT,  ">") \
+    DO(T_LT_EQUAL,  "<=") \
+    DO(T_GT_EQUAL,  ">=") \
+    DO(T_NOTEQUALS,  "!=") \
+    DO(T_EQUALS,  "==" ) \
+    DO(T_DOT,  ".") \
+    DO(T_ARROW,  "->") \
+    DO(T_TERNARY,  "?") \
+    DO(T_ASSIGN_LSHIFT,  "<<=") \
+    DO(T_ASSIGN_RSHIFT,  ">>=") \
+    DO(T_ASSIGN_MUL,  "*=") \
+    DO(T_ASSIGN_ADD,  "+=") \
+    DO(T_ASSIGN_SUB,  "-=") \
+    DO(T_ASSIGN_DIV,  "/=") \
+    DO(T_ASSIGN_MOD,  "\%=") \
+    DO(T_ASSIGN_BITAND, "&=") \
+    DO(T_ASSIGN_BITXOR, "^=") \
+    DO(T_ASSIGN_BITOR,  "|=") \
+    DO(T_LPAREN,  "(") \
+    DO(T_RPAREN,  ")") \
+    DO(T_LBRACKET,  "[") \
+    DO(T_RBRACKET,  "]") \
+    DO(T_COLON,  ":") \
+    DO(T_COMMA,  ",") \
+    DO(T_SEMICOLON,  ";") \
+    DO(T_LBRACE,  "{") \
+    DO(T_RBRACE,  "}") \
+    DO(T_COMMENT, "//")\
+    DO(T_SIZEOF, "sizeof")\
+    DO(T_INT, "int")\
+    DO(T_VOID, "void")\
+    DO(T_CHAR, "char")\
+    DO(T_CONST, "const")\
+    DO(T_VOLTAILE, "volatile")\
+    DO(T_EXTERN, "extern")\
+    DO(T_STATIC, "static")\
+    DO(T_AUTO, "auto")\
+    DO(T_REGISTER, "register")\
+    DO(T_TYPEDEF, "typedef")\
+    DO(T_UNSIGNED, "unsigned")\
+    DO(T_SIGNED, "signed")\
+    DO(T_FLOAT, "float")\
+    DO(T_DOUBLE, "double")\
+    DO(T_LONG, "long")\
+    DO(T_SHORT, "short")\
+    DO(T_GOTO, "goto")\
+    DO(T_IF, "if") \
+    DO(T_ELSE, "else") \
+    DO(T_BREAK, "break") \
+    DO(T_SWITCH, "switch") \
+    DO(T_CONTINUE, "continue") \
+    DO(T_DEFAULT, "default") \
+    DO(T_DO, "do") \
+    DO(T_CASE, "case") \
+    DO(T_WHILE, "while") \
+    DO(T_FOR, "for") \
+    DO(T_STRUCT, "struct") \
+    DO(T_UNION, "union") \
+    DO(T_ENUM, "enum") \
+    DO(T_RETURN, "return") \
+    DO(T_START, "start") \
+    DO(T_END, "end") \
+    DO(T_INVALID, "invalid")
+
+
+/** NOT INCLUDED ARE:
+    T_ASM
+    DO(T_IDENTIFIER, "identifier") \
+    DO(T_INTLITERAL, "intliteral") \
+    DO(T_STRLITERAL, 
+*/
+
+
+#define TOKEN_DEFINE(name, string, ...) name,
+
+typedef enum TOKEN_KIND_ENUM {
+    FOR_SIMPLE_TOKENS( TOKEN_DEFINE )
+    T_ASM,
+    T_IDENTIFIER,
+    T_INTLITERAL,
+    T_STRLITERAL,
+} token_enum;
+
+typedef struct TOKEN_STRUCT 
+{
+    token_enum kind;
+    char* contents; 
+    u16 row;
+    u16 col;
+} token_t;
+
+void print_token( token_t const* const token);
+
+char* token_to_string(token_t const* const token);
+
+char* token_to_debug(token_t const* const token);
+
+/**
 typedef enum TOKEN_KIND_ENUM {
     T_INVALID = -1, // 
 
@@ -131,7 +252,8 @@ typedef enum TOKEN_KIND_ENUM {
     T_START,
     T_END
 } token_enum;
-
+*/
+/**
 static const char * token_type_to_str(token_enum type) {
     switch(type) {
         case T_IDENTIFIER: return "T_IDENTIFIER";
@@ -180,17 +302,6 @@ static const char * token_type_to_str(token_enum type) {
     return "token_type_to_str failed";
     //"Not printable";
 }
-
-typedef struct TOKEN_STRUCT 
-{
-    token_enum kind;
-    char* contents; 
-    uint16_t row;
-    uint16_t col;
-} token_t;
-
-void print_token(const token_t* token);
-
-char* token_to_string(const token_t* token);
+*/
 
 #endif

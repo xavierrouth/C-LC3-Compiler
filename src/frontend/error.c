@@ -79,7 +79,7 @@ void print_analysis_errors() {
     }
 }
 
-void init_error_handler(const char* source, uint32_t source_size) {
+void init_error_handler(const char* source, u32 source_size) {
     error_handler.source = source;
     error_handler.source_size = source_size;
 }

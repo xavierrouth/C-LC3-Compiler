@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "util/util.h"
+
 // Todo: Clean up allocation
 
 typedef struct {
@@ -34,9 +36,9 @@ typedef struct {
         HALT
     } opcode;
     char* label;
-    uint8_t arg1;
-    uint8_t arg2;
-    int16_t arg3;
+    u8 arg1;
+    u8 arg2;
+    i16 arg3;
 } lc3_instruction_t;
 
 typedef struct {
@@ -47,53 +49,60 @@ typedef struct {
         ORIG,
         END,
     } type;
-    uint16_t value;
+    i16 value;
 } lc3_directive_t;
 
-typedef struct { 
+typedef struct ASM_BUNDLE_STRUCT { 
     union {
         lc3_instruction_t instruction;
         lc3_directive_t directive;
     };
-    bool is_inst;
-    bool is_directive;
-    bool is_inline_asm;
+    enum {
+        B_INSTRUCTION,
+        B_DIRECTIVE,
+        B_INLINE_ASM
+    } type;
     char* label;
     char* comment;
+    //struct ASM_BUNDLE_STRUCT* previous;
+    struct ASM_BUNDLE_STRUCT* next;
 } asm_bundle_t;
 
 typedef struct ASM_BLOCK {
-    asm_bundle_t* instructions[64];
-    asm_bundle_t* data[16];
-    uint16_t instructions_size;
-    uint16_t data_size;
+    // Linked Lists:
+    asm_bundle_t* instructions_head;
+    asm_bundle_t* instructions_tail;
+    asm_bundle_t* data_head;
+    asm_bundle_t* data_tail;
     char* header;
     char* footer;
     struct ASM_BLOCK* next;
 } asm_block_t;
 
 typedef struct {
-    asm_block_t root;
+    asm_block_t* root;
 } asm_printer_state_t;
 
-void write_to_file(char* path, asm_block_t* root);
+void write_to_file(char* path);
 
 asm_block_t* init_block(void);
 
-void emit_data(char* label, lc3_directive_t directive, asm_block_t* block);
+void emit_data(char* label, lc3_directive_t directive);
 
-void emit_label(char* label, asm_block_t* block);
+void emit_label(char* label);
 
-void emit_directive(char* directive, asm_block_t* block);
+void emit_directive(char* directive);
 
-void emit_inst(lc3_instruction_t inst, asm_block_t* block);
+void emit_inst(lc3_instruction_t inst);
 
-void emit_comment(char* comment, asm_block_t* block);
+void emit_comment(char* comment);
 
-void emit_inst_comment(lc3_instruction_t inst, char* comment, asm_block_t* block);
+void emit_inst_comment(lc3_instruction_t inst, char* comment);
 
-void emit_newline(asm_block_t* block);
+void emit_newline(void);
 
 void link_multiply();
+
+void init_asmprinter();
 
 #endif

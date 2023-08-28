@@ -1,15 +1,16 @@
 // std::vector
 
-#ifndef T
-#error "Template type T undefined for vector."
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-#include "util.h"
+#include "util/util.h"
 #include "memory/bump_allocator.h"
+
+
+#ifndef T
+#error "Template type T undefined for vector."
+#endif
 
 #ifndef NAME
 #define NAME T
@@ -19,7 +20,7 @@
 
 #define VECTOR_ALLOCATOR_SIZE 2048 * 16
 
-static char buffer[VECTOR_ALLOCATOR_SIZE];
+static u8 buffer[VECTOR_ALLOCATOR_SIZE];
 
 static bump_allocator_t vector_allocator = {
     .start = &buffer[0],

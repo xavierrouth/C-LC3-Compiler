@@ -13,14 +13,14 @@
 typedef struct SYMBOL_TABLE_ENTRY_STRUCT {
     char* identifier;
     type_info_t type_info;
-    int32_t size; 
-    int32_t offset; //Location on stack frame as offset
+    i32 size; 
+    i32 offset; //Location on stack frame as offset
     enum {
         PARAMETER_ST_ENTRY,
         VARIABLE_ST_ENTRY,
         FUNCTION_ST_ENTRY
     } type;
-    int32_t scope;
+    i32 scope;
 } symbol_table_entry_t;
 
 typedef struct SYMBOL_TABLE_STRUCT {
@@ -29,8 +29,9 @@ typedef struct SYMBOL_TABLE_STRUCT {
     uint16_t idx;
 } symbol_table_t;
 
-void symbol_table_add(token_t identifier_token, int32_t scope, type_info_t return_type, int32_t type, int32_t size, int32_t offset);
+// Symbol table could just be global?
+void symbol_table_add(symbol_table_t* symbol_table, token_t identifier_token, i32 scope, type_info_t return_type, i32 type, i32 size, i32 offset);
 
-symbol_table_entry_t symbol_table_search(token_t identifier_token, int32_t scope);
+symbol_table_entry_t symbol_table_search(symbol_table_t* symbol_table, token_t identifier_token, i32 scope);
 
 #endif
